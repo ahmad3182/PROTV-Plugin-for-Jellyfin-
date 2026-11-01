@@ -1,0 +1,21 @@
+[
+  {
+    "guid": "4a0a66d7-04ae-4c4d-b9af-8cb6a1c44f86",
+    "name": "PROTV",
+    "imageUrl": "https://raw.githubusercontent.com/ahmad3182/PROTV-Plugin-for-Jellyfin-/main/logo.png",
+    "description": "Watch PROTV channels in Jellyfin Live TV with a program guide, a management dashboard and a home page tab. Early development pre-release; requires a valid PROTV subscription and works in Syria only.",
+    "overview": "PROTV Live TV integration for Jellyfin (early pre-release).",
+    "owner": "ahmad3182",
+    "category": "LiveTV",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "Dashboard and tab search, favourites and groups, parental locks, on now/next, channel health, backup/restore, Arabic interface, VOD sync status and genres, encrypted password storage, and an xunit test project. Requires the Plugin Pages, File Transformation and Custom Tabs plugins (IAmParadox27). Back up your Jellyfin configuration before installing.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/ahmad3182/PROTV-Plugin-for-Jellyfin-/releases/download/v1.0.0.0/PROTV.Plugin.zip",
+        "checksum": "f787ee16af2ee761c73055376aa0fcd6",
+        "timestamp": "2026-10-22T00:00:00Z"
+      }
+    ]
+  }
+]

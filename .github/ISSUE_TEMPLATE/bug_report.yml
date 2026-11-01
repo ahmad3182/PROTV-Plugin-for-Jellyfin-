@@ -1,0 +1,89 @@
+name: Bug report
+description: Something does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Never paste your PROTV username, password or the file `PROTV.Plugin.xml`.**
+        The diagnostic report below is made to be safe to share.
+  - type: input
+    id: plugin-version
+    attributes:
+      label: PROTV plugin version
+      placeholder: "0.6.1"
+    validations:
+      required: true
+  - type: input
+    id: jellyfin-version
+    attributes:
+      label: Jellyfin version
+      placeholder: "12.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run Jellyfin?
+      options:
+        - Docker (host networking)
+        - Docker (default bridge network)
+        - Linux (no Docker)
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: network
+    attributes:
+      label: How is the server connected?
+      options:
+        - Wired (Ethernet)
+        - Wi-Fi
+        - Not sure
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part is affected?
+      options:
+        - Live TV (channels or playback)
+        - Program guide (EPG)
+        - Films and series (VOD)
+        - Home page tab
+        - PROTV dashboard / saving settings
+        - Installing or updating
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Diagnostic report
+      description: >
+        In Jellyfin open the PROTV page, press **Create diagnostic report** and paste the result here.
+        Passwords and secrets are left out and IP addresses are shortened.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Jellyfin log lines (optional)
+      description: The lines from the moment it went wrong. Remove anything private first.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before sending
+      options:
+        - label: I removed my username, password and any private addresses from everything I pasted.
+          required: true
+        - label: I have a valid PROTV subscription and I am connecting from where the service is available.
+          required: true

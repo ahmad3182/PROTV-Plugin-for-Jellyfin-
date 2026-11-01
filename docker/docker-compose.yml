@@ -1,0 +1,23 @@
+# Jellyfin 12 with host networking, which PROTV's multicast live TV needs.
+# Validate with:  docker compose -f docker/docker-compose.yml config
+services:
+  jellyfin:
+    # Pinned on purpose: a plugin built for Jellyfin 12.0.x can stop loading on a newer major.
+    # Change the tag deliberately, and back up /config first (Jellyfin cannot be downgraded).
+    image: jellyfin/jellyfin:12.0
+    container_name: jellyfin
+    # Multicast streams (225.2.0.x) do not cross Docker's bridge network. Host networking is
+    # required for live TV, and it ignores any "ports:" mapping (Jellyfin then listens on 8096).
+    network_mode: host
+    restart: unless-stopped
+    # Optional: run as the owner of the folders below instead of root, e.g. "1000:1000".
+    # user: "${JELLYFIN_UID:-1000}:${JELLYFIN_GID:-1000}"
+    environment:
+      - TZ=${TZ:-Asia/Damascus}
+    volumes:
+      # Settings, plugins (including PROTV and its three companion plugins) and the PROTV password
+      # key file live here. Back this folder up.
+      - ./config:/config
+      - ./cache:/cache
+      # Your own media, if any. The PROTV VOD libraries are created inside /config/data/protv-vod.
+      # - /path/to/media:/media:ro

@@ -1,0 +1,117 @@
+name: Release
+
+# Tagging v0.8.0 (or running this by hand with a tag) builds the plugin with that version, packs
+# PROTV_<version>.zip, publishes it as a GitHub release, and puts the release's MD5 into manifest.json
+# so a catalog can offer the update. Nothing here needs a secret: the built-in token is enough.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release, for example v0.8.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Work out the version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "The tag must look like v0.8.0 (got: $tag)." >&2
+            exit 1
+          fi
+          version="${tag#v}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build with the tag as the version
+        run: dotnet build PROTV.Plugin.csproj -c Release -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Pack the plugin
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp bin/Release/net10.0/PROTV.Plugin.dll dist/
+          (cd dist && zip -9 "PROTV_${{ steps.version.outputs.version }}.zip" PROTV.Plugin.dll)
+          md5="$(md5sum "dist/PROTV_${{ steps.version.outputs.version }}.zip" | cut -d' ' -f1)"
+          echo "md5=$md5" >> "$GITHUB_OUTPUT"
+          echo "MD5: $md5"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "${{ steps.version.outputs.tag }}" \
+            "dist/PROTV_${{ steps.version.outputs.version }}.zip" \
+            --title "PROTV ${{ steps.version.outputs.version }}" \
+            --notes "PROTV ${{ steps.version.outputs.version }} for Jellyfin 12.
+
+          MD5: \`${{ steps.pack.outputs.md5 }}\`
+
+          Needs the Plugin Pages, File Transformation and Custom Tabs plugins. Back up your Jellyfin
+          configuration before installing. The PROTV password is encrypted on the server, but the
+          settings file and the key next to it are still sensitive: never share them."
+
+      # Keeps the catalog entry in step with the release that was just uploaded.
+      - name: Update manifest.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "${{ steps.version.outputs.version }}" "${{ steps.pack.outputs.md5 }}" \
+            "${{ github.repository }}" "${{ steps.version.outputs.tag }}" <<'PY'
+          import json, sys
+          from datetime import datetime, timezone
+
+          version, md5, repo, tag = sys.argv[1:5]
+          with open('manifest.json', 'r', encoding='utf-8') as handle:
+              manifest = json.load(handle)
+
+          manifest[0]['owner'] = repo.split('/', 1)[0]
+          entry = {
+              'version': version,
+              'changelog': f'See the release notes for {tag}.',
+              'targetAbi': manifest[0]['versions'][0]['targetAbi'],
+              'sourceUrl': f'https://github.com/{repo}/releases/download/{tag}/PROTV_{version}.zip',
+              'checksum': md5,
+              'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+          }
+
+          versions = [item for item in manifest[0]['versions'] if item['version'] != version]
+          manifest[0]['versions'] = [entry] + versions
+          with open('manifest.json', 'w', encoding='utf-8') as handle:
+              json.dump(manifest, handle, indent=2, ensure_ascii=False)
+              handle.write('\n')
+          PY
+
+          if git diff --quiet -- manifest.json; then
+            echo "manifest.json already lists ${{ steps.version.outputs.version }}."
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add manifest.json
+          git commit -m "manifest.json: PROTV ${{ steps.version.outputs.version }}"
+          git push origin "HEAD:${{ github.event.repository.default_branch }}"

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>PROTV.Plugin</AssemblyName>
+    <RootNamespace>PROTV.Plugin</RootNamespace>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <!-- The version Jellyfin shows for the plugin and the one the release workflow stamps from the
+         tag ("dotnet build -p:Version=0.8.0"). Keep it in step with the tag and manifest.json. -->
+    <Version>0.8.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Common" Version="12.0.0" />
+    <PackageReference Include="Jellyfin.Controller" Version="12.0.0" />
+    <PackageReference Include="Jellyfin.Model" Version="12.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration.config.html" />
+    <EmbeddedResource Include="Dashboard.config.html" />
+    <EmbeddedResource Include="Tab.config.js" LogicalName="PROTV.Plugin.Tab.config.js" />
+    <EmbeddedResource Include="ProTvVodLibraryIcon.jpg" LogicalName="PROTV.Plugin.ProTvVodLibraryIcon.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="_decompiled_wpf\**\*.cs" />
+    <Compile Remove="_decompiled_abs\**\*.cs" />
+    <!-- Vendor artefacts must never become part of the plugin assembly. -->
+    <Compile Remove="PROTV\**\*.cs" />
+    <Compile Remove=".tools\**\*.cs" />
+    <Compile Remove="PROTV_decompiled\**\*.cs" />
+    <Compile Remove="PROTV_decompiled_inlined\**\*.cs" />
+    <!-- The test project lives in this folder so GitHub Actions and a local `dotnet test` find it,
+         but its sources must never be compiled into the plugin assembly. -->
+    <Compile Remove="tests\**\*.cs" />
+    <EmbeddedResource Remove="tests\**\*" />
+    <None Remove="tests\**\*" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PROTV.Plugin.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,38 @@
+name: Build
+
+# Every push and pull request: does the plugin still compile against Jellyfin 12, and does the
+# pure-logic test project still pass. The vendor folders (PROTV/, .tools/, _decompiled*/) are
+# ignored by .gitignore and never reach the runner.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore PROTV.Plugin.csproj
+
+      - name: Build
+        run: dotnet build PROTV.Plugin.csproj -c Release --no-restore
+
+      - name: Test
+        if: ${{ hashFiles('tests/**/*.csproj') != '' }}
+        run: dotnet test tests/PROTV.Plugin.Tests/PROTV.Plugin.Tests.csproj -c Release --nologo
+
+      # The single file Jellyfin loads, so a contributor can try a build without tagging a release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PROTV.Plugin
+          path: bin/Release/net10.0/PROTV.Plugin.dll
+          if-no-files-found: error

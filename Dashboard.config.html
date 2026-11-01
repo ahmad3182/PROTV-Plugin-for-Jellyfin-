@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PROTV Dashboard</title>
+</head>
+<body>
+    <div id="protvDashboardPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button">
+        <div data-role="content">
+            <div class="content-primary">
+                <style>
+                    #protvDashboardPage .protvNotice { border-left: 4px solid #e0a100; border-radius: 4px; margin: 0 0 .75em; padding: .75em 1em; }
+                    #protvDashboardPage .protvNotice.protvWarn { border-left-color: #e0a100; background: rgba(224, 161, 0, .15); }
+                    #protvDashboardPage .protvNotice.protvOk { border-left-color: #4caf50; background: rgba(76, 175, 80, .12); }
+                    #protvDashboardPage .protvNotice.protvBad { border-left-color: #f44336; background: rgba(244, 67, 54, .15); }
+
+            /* The same colours for the short warnings that sit inside a line of status text. */
+            #protvDashboardPage span.protvWarn { color: #e0a100; }
+            #protvDashboardPage span.protvBad { color: #f44336; }
+                    #protvDashboardPage .protvTableWrap { max-height: 480px; overflow: auto; }
+                    #protvDashboardPage table.protvTable { border-collapse: collapse; width: 100%; }
+                    #protvDashboardPage table.protvTable th,
+                    #protvDashboardPage table.protvTable td { border-bottom: 1px solid rgba(127, 127, 127, .25); padding: .5em .6em; text-align: left; vertical-align: middle; }
+                    #protvDashboardPage table.protvTable th { position: sticky; top: 0; background: var(--card-background-color, #202020); z-index: 1; }
+                    #protvDashboardPage table.protvTable input[type="text"],
+                    #protvDashboardPage table.protvTable input[type="number"] { background: transparent; border: 1px solid rgba(127, 127, 127, .45); border-radius: 4px; box-sizing: border-box; color: inherit; font: inherit; padding: .35em .5em; width: 100%; }
+                    #protvDashboardPage .protvRow { align-items: center; display: flex; flex-wrap: wrap; gap: .75em; margin-bottom: .75em; }
+                    #protvDashboardPage .protvLogo { height: 24px; max-width: 48px; object-fit: contain; vertical-align: middle; }
+                    #protvDashboardPage .protvSmall { font-size: .9em; opacity: .8; }
+                    #protvDashboardPage textarea.protvReport { background: transparent; border: 1px solid rgba(127, 127, 127, .45); border-radius: 4px; box-sizing: border-box; color: inherit; font-family: monospace; font-size: .85em; margin-top: .75em; padding: .6em; width: 100%; }
+                </style>
+
+                <form id="protvDashboardForm">
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h2 class="sectionTitle" id="protvDashTitle">PROTV</h2>
+                        </div>
+                        <div class="fieldDescription" id="protvWelcome" style="margin-bottom: 1em;"></div>
+                        <div id="protvCompanionNotice" class="protvNotice" style="display: none;"></div>
+                        <div id="protvEncryptionNotice" class="protvNotice protvBad" style="display: none;"></div>
+                        <div id="protvUpdateNotice" class="protvNotice protvOk" style="display: none;"></div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Account</h3>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvUsername" type="text" autocomplete="username" label="Username" />
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvPassword" type="password" autocomplete="current-password" label="Password" />
+                            <div class="fieldDescription">Encrypted in this server's plugin settings with a key kept outside the settings file. Leave the field empty to keep the saved password.</div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Service</h3>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvApiBaseUrl" type="url" label="API base URL" placeholder="http://10.1.0.8:82" />
+                            <div class="fieldDescription">Address of the PROTV service, including the port.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvAppId" type="text" label="App ID" placeholder="ca88f40a-3056-4c52-9614-8d75a3b0b178" />
+                            <div class="fieldDescription">Identifier the PROTV app signs in with. Change it only if the service requires a different one.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvDeviceModel" type="text" label="Device model" placeholder="Jellyfin Server" />
+                            <div class="fieldDescription">Name this server reports to PROTV. Use a fixed name when running in Docker.</div>
+                        </div>
+                        <div class="protvRow">
+                            <button is="emby-button" type="button" id="protvTestConnection" class="raised emby-button"><span>Test connection</span></button>
+                            <span class="protvSmall">Uses the values above, even if they are not saved yet.</span>
+                        </div>
+                        <div id="protvTestResult" class="protvNotice" style="display: none;"></div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Channels</h3>
+                        </div>
+                        <div class="fieldDescription" style="margin-bottom: 1em;">
+                            Rename, hide, reorder or change the logo of any channel. Channel IDs never change. Lower priority numbers are listed first; channels with the same priority are sorted by name. Mark favourites, put channels into groups and lock the ones that need the parental PIN. After saving, run Refresh Guide so Live TV picks up the changes.
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvChannelFilter" type="text" label="Filter channels" />
+                        </div>
+                        <div id="protvChannelEmpty" class="protvNotice protvWarn" style="display: none;">
+                            No channels yet. Add the PROTV tuner under Live TV and run Refresh Guide; the channels appear here once the plugin has loaded them.
+                        </div>
+                        <div class="protvTableWrap" id="protvChannelWrap">
+                            <table class="protvTable">
+                                <thead>
+                                    <tr><th>ID</th><th>PROTV name</th><th>Custom name</th><th>Priority</th><th>Logo URL</th><th>Hidden</th><th>Favourite</th><th>Group</th><th>Locked</th></tr>
+                                </thead>
+                                <tbody id="protvChannelRows"></tbody>
+                            </table>
+                        </div>
+                        <div class="protvRow" style="margin-top: 1em;">
+                            <button is="emby-button" type="button" id="protvRefreshGuide" class="raised emby-button"><span>Refresh guide now</span></button>
+                            <span class="protvSmall" id="protvChannelCount"></span>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Channel groups</h3>
+                        </div>
+                        <div class="fieldDescription" style="margin-bottom: 1em;">
+                            Groups appear as sections on the PROTV home page tab, in the order shown here. Favourites always get their own section first. Channel group names are shown exactly as typed.
+                        </div>
+                        <div class="protvRow">
+                            <div class="inputContainer" style="flex: 1 1 18em; margin: 0;">
+                                <input is="emby-input" id="protvGroupName" type="text" label="New group name" placeholder="News" />
+                            </div>
+                            <button is="emby-button" type="button" id="protvGroupAdd" class="raised emby-button"><span>Add group</span></button>
+                        </div>
+                        <div id="protvGroupList"></div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Channel health</h3>
+                        </div>
+                        <div class="fieldDescription" style="margin-bottom: 1em;">
+                            Asks PROTV for every channel's stream address and checks that data really arrives, so the home page tab can grey out a channel that has no stream instead of leaving the viewer waiting on a spinner. It runs on its own every six hours, keeps its answer in memory only, and never writes to your settings.
+                        </div>
+                        <div class="protvRow">
+                            <button is="emby-button" type="button" id="protvChannelHealthCheck" class="raised emby-button"><span>Check channels now</span></button>
+                            <button is="emby-button" type="button" id="protvChannelHealthRefresh" class="emby-button"><span>Refresh status</span></button>
+                        </div>
+                        <div class="protvSmall" id="protvChannelHealthStatus"></div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Appearance</h3>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvTitleInput" type="text" label="Page heading" />
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvWelcomeInput" type="text" label="Message under the heading" />
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvSidebarLabel" type="text" label="Menu label" />
+                            <div class="fieldDescription">Name of the PROTV entry in the dashboard menu and the Plugin Pages sidebar. Reload the page (and restart Jellyfin for the sidebar) to see it.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvSidebarIcon" type="text" label="Menu icon" placeholder="live_tv" />
+                            <div class="fieldDescription">A Material icon name, for example live_tv, tv or satellite_alt.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="protvUiLanguage">Interface language</label>
+                            <select is="emby-select" id="protvUiLanguage" class="emby-select-withcolor emby-select">
+                                <option value="auto">Automatic (follow the browser)</option>
+                                <option value="en">English</option>
+                                <option value="ar">العربية (Arabic)</option>
+                            </select>
+                            <div class="fieldDescription">Language of this page and of the PROTV tab on the Jellyfin home page. Arabic is drawn right to left.</div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Updates</h3>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvUpdateRepository" type="text" label="GitHub repository (owner/repo)" placeholder="owner/repo" />
+                            <div class="fieldDescription">Public repository whose latest release is compared with this plugin's version. Leave it empty to hide the update notice. Only the public GitHub release endpoint is read.</div>
+                        </div>
+                        <div class="protvRow">
+                            <button is="emby-button" type="button" id="protvUpdateCheck" class="emby-button"><span>Check for updates now</span></button>
+                            <span class="protvSmall" id="protvUpdateStatus"></span>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Device and streaming</h3>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvDeviceIp" type="text" label="Device IP address" placeholder="192.168.100.20" />
+                            <div class="fieldDescription">Address this server reports to PROTV. Leave empty to detect it automatically.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvDeviceMac" type="text" label="Device MAC address" />
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvRouterMac" type="text" label="Router MAC address" />
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvMulticastInterface" type="text" label="Multicast network interface (IP address)" placeholder="192.168.100.20" />
+                            <div class="fieldDescription">IP of the network card that receives the PROTV multicast streams. Only needed when the server has several network cards.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvAnalyzeMs" type="number" min="0" step="100" label="Stream analysis time (ms)" />
+                            <div class="fieldDescription">Lower starts playback faster; too low can miss audio tracks. 0 uses Jellyfin's default.</div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Reliability</h3>
+                        </div>
+                        <div id="protvServiceLine" class="protvSmall" style="margin-bottom: .75em;"></div>
+                        <div class="inputContainer">
+                            <label style="align-items: center; display: flex; gap: .5em;">
+                                <input type="checkbox" id="protvLiveApiResilience" />
+                                <span>Retry briefly and pause after repeated PROTV failures</span>
+                            </label>
+                            <div class="fieldDescription">Short retries for reads from PROTV, then a pause of up to a minute after repeated failures so a PROTV outage is not hammered. A rejected login or request is never retried. Turn off to ask PROTV on every request.</div>
+                        </div>
+                        <div class="protvRow">
+                            <button is="emby-button" type="button" id="protvRefreshServiceStatus" class="raised emby-button"><span>Check PROTV status</span></button>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Jellyfin home page tab</h3>
+                        </div>
+                        <div class="fieldDescription" style="margin-bottom: 1em;">
+                            Adds a PROTV tab next to Favorites on the Jellyfin home page, listing every channel this tuner serves with the same numbering and names Live TV uses. The tab is drawn by the Custom Tabs plugin, so Plugin Pages, File Transformation and Custom Tabs all have to be installed and running.
+                        </div>
+                        <div class="inputContainer">
+                            <label style="align-items: center; display: flex; gap: .5em;">
+                                <input type="checkbox" id="protvFrontpageTabEnabled" />
+                                <span>Show the PROTV tab on the Jellyfin home page</span>
+                            </label>
+                            <div class="fieldDescription">Restart Jellyfin after changing this.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvFrontpageTabTitle" type="text" label="Home page tab label" placeholder="PROTV" />
+                            <div class="fieldDescription">Text on the tab. Restart Jellyfin after changing it.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label style="align-items: center; display: flex; gap: .5em;">
+                                <input type="checkbox" id="protvRequireCompanions" />
+                                <span>Require Plugin Pages, File Transformation and Custom Tabs</span>
+                            </label>
+                            <div class="fieldDescription">
+                                When on, PROTV does not start its tuner, guide or pages unless all three plugins are installed. Turn it off to keep Live TV running without the home page tab.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Parental controls</h3>
+                        </div>
+                        <div class="fieldDescription" style="margin-bottom: 1em;">
+                            Locks the channels ticked in the table above behind a PIN on the PROTV home page tab. Each Jellyfin user unlocks their own session for twelve hours. Use Jellyfin's per-user Live TV permissions as the hard access control; this is the convenient remote-level lock.
+                        </div>
+                        <div class="inputContainer">
+                            <label style="align-items: center; display: flex; gap: .5em;">
+                                <input type="checkbox" id="protvParentalEnabled" />
+                                <span>Enable parental locks on the PROTV tab</span>
+                            </label>
+                        </div>
+                        <div class="protvRow">
+                            <div class="inputContainer" style="flex: 1 1 16em; margin: 0;">
+                                <input is="emby-input" id="protvParentalPin" type="password" autocomplete="new-password" minlength="4" maxlength="12" label="New PIN (4–12 characters)" />
+                            </div>
+                            <button is="emby-button" type="button" id="protvParentalSetPin" class="raised emby-button"><span>Set PIN</span></button>
+                            <button is="emby-button" type="button" id="protvParentalClearPin" class="emby-button"><span>Clear PIN</span></button>
+                        </div>
+                        <div class="protvSmall" id="protvParentalStatus"></div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Films and series (VOD)</h3>
+                        </div>
+                        <div class="fieldDescription" style="margin-bottom: 1em;">
+                            Builds a real Jellyfin library (<strong id="protvVodLibraryName">PROTV VOD</strong>) out of the PROTV film and series catalogue, so films and episodes play in every Jellyfin app, not only in the web browser. Every film and episode becomes a Jellyfin item whose stream is resolved from PROTV when it is played. The first sync writes the whole catalogue and can take a while; later runs only add what is new.
+                        </div>
+                        <div class="inputContainer">
+                            <label style="align-items: center; display: flex; gap: .5em;">
+                                <input type="checkbox" id="protvVodMovies" />
+                                <span>Mirror films into the library</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label style="align-items: center; display: flex; gap: .5em;">
+                                <input type="checkbox" id="protvVodSeries" />
+                                <span>Mirror series, seasons and episodes into the library</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label style="align-items: center; display: flex; gap: .5em;">
+                                <input type="checkbox" id="protvVodPosters" />
+                                <span>Download posters</span>
+                            </label>
+                            <div class="fieldDescription">The slowest part of the first sync. Turn it off to keep only the metadata and streams, and add posters with a later sync.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label style="align-items: center; display: flex; gap: .5em;">
+                                <input type="checkbox" id="protvVodSubtitles" />
+                                <span>Download subtitles</span>
+                            </label>
+                            <div class="fieldDescription">Fetches the subtitle PROTV has for a film or an episode and stores it next to the stream, so Jellyfin offers it while playing. Skipped once the download limit below is reached.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvVodAssetBudgetGb" type="number" min="0" step="0.5" label="Download limit (GB)" />
+                            <div class="fieldDescription">How much the sync may download in total (posters, subtitles and the library icons). Once the limit is reached the catalogue is still mirrored, but nothing more is downloaded. 0 = no limit.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvVodStreamBaseUrl" type="text" label="Stream address" placeholder="leave empty to detect this server" />
+                            <div class="fieldDescription">
+                                The address the library's streams point back at. Leave it empty to let PROTV ask Jellyfin for its own LAN address, which is right on almost every setup. Set it when clients reach this server through another name, for example <code>http://jellyfin.lan:8096</code>.
+                            </div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvVodSyncIntervalHours" type="number" min="0" step="1" label="Sync every (hours)" />
+                            <div class="fieldDescription">How often Jellyfin runs the VOD sync. Used the first time the task is created; change it later in Dashboard &gt; Scheduled Tasks.</div>
+                        </div>
+                        <div class="protvRow">
+                            <button is="emby-button" type="button" id="protvVodSync" class="raised emby-button"><span>Sync now</span></button>
+                            <button is="emby-button" type="button" id="protvVodRefreshStatus" class="emby-button"><span>Refresh status</span></button>
+                        </div>
+                        <div class="protvSmall" id="protvVodStatus"></div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Backup and restore</h3>
+                        </div>
+                        <div class="fieldDescription" style="margin-bottom: 1em;">
+                            Saves the settings you can see on this page to a JSON file, including channel names, groups, favourites and parental locks. Passwords and stream-signing secrets are deliberately left out, so after restoring on another server enter the PROTV password again.
+                        </div>
+                        <div class="protvRow">
+                            <button is="emby-button" type="button" id="protvBackupExport" class="raised emby-button"><span>Download backup</span></button>
+                            <button is="emby-button" type="button" id="protvBackupImport" class="emby-button"><span>Restore backup</span></button>
+                            <input type="file" id="protvBackupFile" accept="application/json,.json" style="display: none;" />
+                        </div>
+                        <div class="protvSmall" id="protvBackupStatus"></div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Diagnostics</h3>
+                        </div>
+                        <div class="fieldDescription" style="margin-bottom: 1em;">
+                            Creates a report of versions, companion plugins, settings and recent errors to paste into a bug report. Passwords and secrets are never included, and IP addresses are shortened.
+                        </div>
+                        <div class="protvRow">
+                            <button is="emby-button" type="button" id="protvCreateReport" class="raised emby-button"><span>Create diagnostic report</span></button>
+                        </div>
+                        <div class="protvSmall" id="protvReportStatus"></div>
+                        <textarea id="protvReportText" class="protvReport" rows="16" readonly style="display: none;"></textarea>
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <script type="text/javascript">
+        (function () {
+            var pluginId = '4a0a66d7-04ae-4c4d-b9af-8cb6a1c44f86';
+            var page = document.querySelector('#protvDashboardPage');
+            var form = document.querySelector('#protvDashboardForm');
+            var state = { config: null, channels: [], overrides: {}, groups: [], savedPassword: '', parental: null };
+            var loading = false;
+
+            function el(id) { return document.querySelector('#' + id); }
+
+            function esc(value) {
+                return String(value == null ? '' : value)
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            }
+
+            // ---- rendering ----
+
+            function groupOptions(selected) {
+                var html = '<option value="">No group</option>';
+                state.groups.forEach(function (group) {
+                    html += '<option class="protvValue" value="' + esc(group.Id) + '"' +
+                        (String(selected || '') === String(group.Id) ? ' selected' : '') + '>' +
+                        esc(group.Name || '') + '</option>';
+                });
+                return html;
+            }
+
+            function renderChannels() {
+                var rows = state.channels.map(function (channel) {
+                    var o = state.overrides[channel.Id] || {};
+                    var logo = channel.LogoUrl ? '<img class="protvLogo" src="' + esc(channel.LogoUrl) + '" alt="" /> ' : '';
+                    return '<tr data-id="' + channel.Id + '" data-name="' + esc(String(channel.Name).toLowerCase()) + '">' +
+                        '<td>' + channel.Id + '</td>' +
+                        '<td class="protvValue">' + logo + esc(channel.Name) + '</td>' +
+                        '<td><input class="protvValue" type="text" data-field="CustomName" placeholder="' + esc(channel.Name) + '" value="' + esc(o.CustomName) + '" /></td>' +
+                        '<td style="width: 6em;"><input type="number" step="1" data-field="Priority" value="' + (o.Priority || 0) + '" /></td>' +
+                        '<td><input type="text" data-field="LogoUrl" placeholder="(PROTV logo)" value="' + esc(o.LogoUrl) + '" /></td>' +
+                        '<td><input type="checkbox" data-field="Hidden"' + (o.Hidden ? ' checked' : '') + ' /></td>' +
+                        '<td style="text-align: center;"><input type="checkbox" data-field="IsFavorite"' + (o.IsFavorite ? ' checked' : '') + ' /></td>' +
+                        '<td><select data-field="GroupId" style="min-width: 8em;">' + groupOptions(o.GroupId) + '</select></td>' +
+                        '<td style="text-align: center;"><input type="checkbox" data-field="ParentalLocked"' + (o.ParentalLocked ? ' checked' : '') + ' /></td>' +
+                        '</tr>';
+                });
+                el('protvChannelRows').innerHTML = rows.join('');
+                // Do not use inline onerror: Jellyfin's CSP may block inline handlers.
+                Array.prototype.forEach.call(
+                    document.querySelectorAll('#protvChannelRows img.protvLogo'),
+                    function (image) {
+                        image.addEventListener('error', function () { image.style.display = 'none'; });
+                    });
+                el('protvChannelEmpty').style.display = state.channels.length ? 'none' : 'block';
+                el('protvChannelWrap').style.display = state.channels.length ? 'block' : 'none';
+                updateChannelCount();
+            }
+
+            function updateChannelCount() {
+                var total = state.channels.length;
+                var hidden = document.querySelectorAll('#protvChannelRows input[data-field="Hidden"]:checked').length;
+                var favorites = document.querySelectorAll('#protvChannelRows input[data-field="IsFavorite"]:checked').length;
+                var locked = document.querySelectorAll('#protvChannelRows input[data-field="ParentalLocked"]:checked').length;
+                el('protvChannelCount').textContent = total
+                    ? (total + ' channels, ' + hidden + ' hidden, ' + favorites + ' favourites, ' + locked + ' locked')
+                    : '';
+            }
+
+            function applyFilter() {
+                var needle = el('protvChannelFilter').value.trim().toLowerCase();
+                Array.prototype.forEach.call(document.querySelectorAll('#protvChannelRows tr'), function (row) {
+                    var group = row.querySelector('[data-field="GroupId"]');
+                    var groupName = group && group.selectedIndex >= 0 ? group.options[group.selectedIndex].text : '';
+                    var text = row.getAttribute('data-id') + ' ' + row.getAttribute('data-name') + ' ' +
+                        (row.querySelector('[data-field="CustomName"]').value || '').toLowerCase() + ' ' +
+                        groupName.toLowerCase();
+                    row.style.display = !needle || text.indexOf(needle) !== -1 ? '' : 'none';
+                });
+            }
+
+            // Reads every visible row into state.overrides, including rows that still have the
+            // default values. Re-rendering the table (for example after adding a group) then keeps
+            // what the admin has typed so far.
+            function captureChannelRows() {
+                var map = {};
+                Array.prototype.forEach.call(document.querySelectorAll('#protvChannelRows tr[data-id]'), function (row) {
+                    var id = parseInt(row.getAttribute('data-id'), 10);
+                    map[id] = {
+                        ChannelId: id,
+                        CustomName: row.querySelector('[data-field="CustomName"]').value.trim(),
+                        Priority: parseInt(row.querySelector('[data-field="Priority"]').value, 10) || 0,
+                        LogoUrl: row.querySelector('[data-field="LogoUrl"]').value.trim(),
+                        Hidden: row.querySelector('[data-field="Hidden"]').checked,
+                        IsFavorite: row.querySelector('[data-field="IsFavorite"]').checked,
+                        GroupId: row.querySelector('[data-field="GroupId"]').value,
+                        ParentalLocked: row.querySelector('[data-field="ParentalLocked"]').checked
+                    };
+                });
+                Object.keys(state.overrides).forEach(function (key) {
+                    if (!map[key]) { map[key] = state.overrides[key]; }
+                });
+                state.overrides = map;
+            }
+
+            function renderGroups() {
+                var node = el('protvGroupList');
+                if (!node) { return; }
+                if (!state.groups.length) {
+                    node.innerHTML = '<div class="protvSmall">No groups yet.</div>';
+                    return;
+                }
+
+                var html = state.groups.map(function (group, index) {
+                    return '<div class="protvRow" data-group-id="' + esc(group.Id) + '" style="align-items: center; gap: .35em; margin-top: .4em;">' +
+                        '<button is="emby-button" type="button" class="emby-button" data-group-action="up" title="Move up" aria-label="Move up"' + (index === 0 ? ' disabled' : '') + '><span>↑</span></button>' +
+                        '<button is="emby-button" type="button" class="emby-button" data-group-action="down" title="Move down" aria-label="Move down"' + (index === state.groups.length - 1 ? ' disabled' : '') + '><span>↓</span></button>' +
+                        '<input type="text" data-group-name value="' + esc(group.Name) + '" aria-label="Group name" style="flex: 1 1 12em; max-width: 22em;" />' +
+                        '<button is="emby-button" type="button" class="emby-button" data-group-action="delete"><span>Delete</span></button>' +
+                        '</div>';
+                });
+                node.innerHTML = html.join('');
+            }
+
+            function readGroups() {
+                return state.groups.map(function (group) {
+                    return { Id: group.Id, Name: String(group.Name || '').trim() };
+                }).filter(function (group) { return !!group.Name; });
+            }
+
+            function newGroupId() {
+                var random = Math.random().toString(36).slice(2, 10);
+                return 'g_' + Date.now().toString(36) + random;
+            }
+
+            // ---- reading the form ----
+
+            function readOverrides() {
+                var result = [];
+                var seen = {};
+                Array.prototype.forEach.call(document.querySelectorAll('#protvChannelRows tr[data-id]'), function (row) {
+                    var id = parseInt(row.getAttribute('data-id'), 10);
+                    seen[id] = true;
+                    var item = {
+                        ChannelId: id,
+                        CustomName: row.querySelector('[data-field="CustomName"]').value.trim(),
+                        Priority: parseInt(row.querySelector('[data-field="Priority"]').value, 10) || 0,
+                        LogoUrl: row.querySelector('[data-field="LogoUrl"]').value.trim(),
+                        Hidden: row.querySelector('[data-field="Hidden"]').checked,
+                        IsFavorite: row.querySelector('[data-field="IsFavorite"]').checked,
+                        GroupId: row.querySelector('[data-field="GroupId"]').value,
+                        ParentalLocked: row.querySelector('[data-field="ParentalLocked"]').checked
+                    };
+                    if (item.CustomName || item.Priority !== 0 || item.LogoUrl || item.Hidden || item.IsFavorite || item.GroupId || item.ParentalLocked) { result.push(item); }
+                });
+                // Keep overrides for channels PROTV no longer lists, so they come back with the channel.
+                Object.keys(state.overrides).forEach(function (key) {
+                    if (!seen[key]) { result.push(state.overrides[key]); }
+                });
+                return result;
+            }
+
+            function readFields() {
+                return {
+                    Username: el('protvUsername').value.trim(),
+                    Password: el('protvPassword').value,
+                    ApiBaseUrl: el('protvApiBaseUrl').value.trim(),
+                    AppId: el('protvAppId').value.trim(),
+                    DeviceModel: el('protvDeviceModel').value.trim(),
+                    DashboardTitle: el('protvTitleInput').value.trim(),
+                    WelcomeMessage: el('protvWelcomeInput').value.trim(),
+                    SidebarLabel: el('protvSidebarLabel').value.trim(),
+                    SidebarIcon: el('protvSidebarIcon').value.trim(),
+                    DeviceIpAddress: el('protvDeviceIp').value.trim(),
+                    DeviceMacAddress: el('protvDeviceMac').value.trim(),
+                    RouterMacAddress: el('protvRouterMac').value.trim(),
+                    MulticastInterfaceAddress: el('protvMulticastInterface').value.trim(),
+                    StreamAnalyzeDurationMs: Math.max(0, parseInt(el('protvAnalyzeMs').value, 10) || 0),
+                    FrontpageTabEnabled: el('protvFrontpageTabEnabled').checked,
+                    FrontpageTabTitle: el('protvFrontpageTabTitle').value.trim(),
+                    RequireCompanionPlugins: el('protvRequireCompanions').checked,
+                    VodMoviesEnabled: el('protvVodMovies').checked,
+                    VodSeriesEnabled: el('protvVodSeries').checked,
+                    VodDownloadPosters: el('protvVodPosters').checked,
+                    VodDownloadSubtitles: el('protvVodSubtitles').checked,
+                    VodAssetBudgetGb: readBudget(),
+                    VodStreamBaseUrl: el('protvVodStreamBaseUrl').value.trim(),
+                    VodSyncIntervalHours: Math.max(0, parseInt(el('protvVodSyncIntervalHours').value, 10) || 0),
+                    UiLanguage: el('protvUiLanguage').value,
+                    UpdateRepository: el('protvUpdateRepository').value.trim(),
+                    ParentalEnabled: el('protvParentalEnabled').checked,
+                    LiveApiResilience: el('protvLiveApiResilience').checked
+                };
+            }
+
+            function fillFields(config) {
+                state.savedPassword = config.Password || '';
+                el('protvUsername').value = config.Username || '';
+                el('protvPassword').value = '';
+                el('protvPassword').setAttribute('placeholder', state.savedPassword ? 'Saved (encrypted) — leave empty to keep it' : '');
+                el('protvApiBaseUrl').value = config.ApiBaseUrl || '';
+                state.groups = (config.ChannelGroups || []).filter(function (group) {
+                    return group && group.Id && group.Name;
+                }).map(function (group) {
+                    return { Id: String(group.Id), Name: String(group.Name) };
+                });
+                el('protvAppId').value = config.AppId || '';
+                el('protvDeviceModel').value = config.DeviceModel || '';
+                el('protvTitleInput').value = config.DashboardTitle || '';
+                el('protvWelcomeInput').value = config.WelcomeMessage || '';
+                el('protvSidebarLabel').value = config.SidebarLabel || '';
+                el('protvSidebarIcon').value = config.SidebarIcon || '';
+                el('protvUiLanguage').value = config.UiLanguage || 'auto';
+                el('protvUpdateRepository').value = config.UpdateRepository || '';
+                el('protvParentalEnabled').checked = config.ParentalEnabled === true;
+                el('protvLiveApiResilience').checked = config.LiveApiResilience !== false;
+                el('protvDeviceIp').value = config.DeviceIpAddress || '';
+                el('protvDeviceMac').value = config.DeviceMacAddress || '';
+                el('protvRouterMac').value = config.RouterMacAddress || '';
+                el('protvMulticastInterface').value = config.MulticastInterfaceAddress || '';
+                el('protvAnalyzeMs').value = config.StreamAnalyzeDurationMs == null ? 1500 : config.StreamAnalyzeDurationMs;
+                el('protvFrontpageTabEnabled').checked = config.FrontpageTabEnabled !== false;
+                el('protvFrontpageTabTitle').value = config.FrontpageTabTitle || '';
+                el('protvRequireCompanions').checked = config.RequireCompanionPlugins !== false;
+                el('protvVodMovies').checked = config.VodMoviesEnabled !== false;
+                el('protvVodSeries').checked = config.VodSeriesEnabled !== false;
+                el('protvVodPosters').checked = config.VodDownloadPosters !== false;
+                el('protvVodSubtitles').checked = config.VodDownloadSubtitles !== false;
+                el('protvVodAssetBudgetGb').value = config.VodAssetBudgetGb == null ? 5 : config.VodAssetBudgetGb;
+                el('protvVodStreamBaseUrl').value = config.VodStreamBaseUrl || '';
+                el('protvVodSyncIntervalHours').value = config.VodSyncIntervalHours == null ? 12 : config.VodSyncIntervalHours;
+                el('protvDashTitle').textContent = config.DashboardTitle || 'PROTV';
+                el('protvWelcome').textContent = config.WelcomeMessage || '';
+                el('protvWelcome').style.display = config.WelcomeMessage ? 'block' : 'none';
+            }
+
+            // ---- loading / errors ----
+
+            function describeError(error) {
+                if (error && typeof error.status === 'number') {
+                    var summary = 'HTTP ' + error.status + (error.statusText ? ' ' + error.statusText : '');
+                    if (typeof error.text === 'function') {
+                        return error.text().then(function (body) {
+                            return body ? summary + ': ' + body.substring(0, 300) : summary;
+                        }, function () { return summary; });
+                    }
+                    return Promise.resolve(summary);
+                }
+                return Promise.resolve((error && error.message) || String(error || 'Unknown error'));
+            }
+
+            // ---- companion plugins ----
+
+            // The sidebar entry and the Jellyfin home page tab are drawn by Plugin Pages,
+            // File Transformation and Custom Tabs, so their state is shown at the top of the page.
+            function renderCompanionNotice(status) {
+                var notice = el('protvCompanionNotice');
+                if (!notice || !status) { return; }
+                var requirements = status.requirements || [];
+                var describe = requirements.map(function (item) {
+                    var state = item.installed ? (item.loaded ? 'installed and running' : 'installed but not loaded') : 'not installed';
+                    return item.name + ' (' + state + ')';
+                });
+                var problems = requirements.filter(function (item) { return !(item.installed && item.loaded); });
+                var html = '<strong>Home page tab dependencies:</strong> ' + esc(describe.join(', ')) + '. ';
+                if (problems.length) {
+                    html += 'The PROTV sidebar entry and home page tab need all three installed and running. ' +
+                        'Install the build that matches this Jellyfin version and restart Jellyfin.';
+                    if (status.requireCompanionPlugins) {
+                        html += ' Require Companion Plugins is on, so PROTV keeps its tuner, guide and pages off until they are.';
+                    }
+                } else if (status.frontpageTabEnabled) {
+                    html += status.tabRegistered
+                        ? 'The PROTV tab is registered on the Jellyfin home page.'
+                        : 'The tab is enabled but not registered yet; restart Jellyfin.';
+                } else {
+                    html += 'The PROTV home page tab is switched off below.';
+                }
+
+                if (status.channelCount) {
+                    html += ' ' + status.channelCount + ' channels are stored for the tab.';
+                }
+
+                notice.className = 'protvNotice ' + (problems.length ? 'protvBad' : 'protvOk');
+                notice.innerHTML = html;
+                notice.style.display = 'block';
+
+                var encryption = el('protvEncryptionNotice');
+                if (encryption) {
+                    if (status.secretsEncrypted === false) {
+                        encryption.textContent = 'The server cannot create or read its secret key. Saving settings is blocked so the PROTV password and VOD signing secret are not written in clear text. Fix access to the protv folder in the Jellyfin data directory and restart Jellyfin; re-enter the password if it can no longer be decrypted.';
+                        encryption.style.display = 'block';
+                    } else {
+                        encryption.style.display = 'none';
+                    }
+                }
+            }
+
+            function loadCompanionNotice() {
+                return ApiClient.getJSON(ApiClient.getUrl('PROTV/Status')).then(renderCompanionNotice, function () {
+                    // Older plugin builds have no status endpoint; the page still works without it.
+                });
+            }
+
+            // ---- VOD sync ----
+
+            var vodPollTimer = null;
+            var channelHealthTimer = null;
+
+            function formatCount(value) {
+                try {
+                    return Number(value || 0).toLocaleString();
+                } catch (ignored) {
+                    return String(value || 0);
+                }
+            }
+
+            function formatTime(value) {
+                if (!value) { return 'never'; }
+                try {
+                    return new Date(value).toLocaleString();
+                } catch (ignored) {
+                    return String(value);
+                }
+            }
+
+            function formatBytes(value) {
+                var bytes = Number(value || 0);
+                if (!bytes) { return '0 MB'; }
+                if (bytes >= 1073741824) { return (bytes / 1073741824).toFixed(2) + ' GB'; }
+                if (bytes >= 1048576) { return (bytes / 1048576).toFixed(1) + ' MB'; }
+                return Math.round(bytes / 1024) + ' KB';
+            }
+
+            // An empty or nonsense limit falls back to the default, so the sync can never be let
+            // loose without one by accident; 0 still means "no limit".
+            function readBudget() {
+                var value = parseFloat(el('protvVodAssetBudgetGb').value);
+                return isNaN(value) || value < 0 ? 5 : value;
+            }
+
+            function renderVodStatus(status) {
+                var node = el('protvVodStatus');
+                if (!node || !status) { return; }
+                if (status.libraryName) { el('protvVodLibraryName').textContent = status.libraryName; }
+
+                var parts = [];
+                if (status.running) {
+                    parts.push('Syncing now...');
+                } else if (!status.moviesEnabled && !status.seriesEnabled) {
+                    parts.push('VOD is switched off.');
+                } else if (!status.libraryRegistered || status.seriesLibraryRegistered === false) {
+                    parts.push('The libraries are not in Jellyfin yet; press "Sync now".');
+                } else {
+                    parts.push('Libraries ready');
+                }
+
+                parts.push(formatCount(status.movies) + ' films');
+                parts.push(formatCount(status.series) + ' series');
+                parts.push(formatCount(status.episodes) + ' episodes');
+                if (status.downloadSubtitles !== false) {
+                    parts.push(formatCount(status.subtitles) + ' subtitles');
+                }
+
+                parts.push('last sync: ' + formatTime(status.lastSyncUtc));
+                if (!status.running && status.lastRunStatus === 'failed') {
+                    parts.push('last run failed');
+                } else if (!status.running && status.lastRunStatus === 'cancelled') {
+                    parts.push('last run was cancelled');
+                }
+
+                var html = esc(parts.join(' \u00b7 '));
+                if (status.streamBaseUrl) {
+                    html += '<br />Streams point at: <code>' + esc(status.streamBaseUrl) + '</code>';
+                }
+
+                if (status.assetBytes) {
+                    html += '<br />Downloaded: <code>' + esc(formatBytes(status.assetBytes)) + '</code>';
+                    if (status.assetBudgetBytes > 0) {
+                        html += ' of <code>' + esc(formatBytes(status.assetBudgetBytes)) + '</code>';
+                        if (status.budgetReached) {
+                            html += ' <span class="protvWarn">(limit reached: no more posters or subtitles were downloaded)</span>';
+                        }
+                    }
+                }
+
+                html += '<br />Libraries: <code>' + esc(status.libraryName || 'PROTV VOD') + '</code>';
+                if (status.seriesLibraryName) {
+                    html += ' and <code>' + esc(status.seriesLibraryName) + '</code>';
+                    if (status.seriesLibraryRegistered === false) {
+                        html += ' <span class="protvBad">(series library missing)</span>';
+                    }
+                }
+
+                if (status.libraryPath) {
+                    html += '<br />Files: <code>' + esc(status.libraryPath) + '</code>';
+                }
+
+                if (status.lastError) {
+                    html += '<br /><span class="protvBad">Last error: ' + esc(status.lastError) + '</span>';
+                }
+
+                node.innerHTML = html;
+            }
+
+            // ---- PROTV service state (retry / pause), from GET /PROTV/ServiceStatus ----
+
+            function renderServiceStatus(status) {
+                var line = el('protvServiceLine');
+                if (!line) { return; }
+                if (!status || !status.state) {
+                    line.textContent = 'The PROTV status is not available.';
+                    localize(line);
+                    return;
+                }
+
+                var since = status.sinceUtc ? new Date(status.sinceUtc).toLocaleString() : '';
+                if (status.state === 'ok') {
+                    line.textContent = 'PROTV is answering.';
+                } else if (status.state === 'degraded') {
+                    line.textContent = 'PROTV is slow or not answering; the plugin is retrying (since ' + since + ').';
+                } else {
+                    line.textContent = 'PROTV has not answered since ' + since + '; the plugin has paused its requests and tries again shortly.';
+                }
+                localize(line);
+            }
+
+            function refreshServiceStatus() {
+                return ApiClient.getJSON(ApiClient.getUrl('PROTV/ServiceStatus')).then(renderServiceStatus, function () {
+                    // A server without the endpoint, or a failed request, is a calm line and no alert.
+                    renderServiceStatus(null);
+                });
+            }
+
+            function refreshVodStatus() {
+                return ApiClient.getJSON(ApiClient.getUrl('PROTV/Vod/Status')).then(function (status) {
+                    renderVodStatus(status);
+                    // While a sync is running the page follows it, so the counts move on their own.
+                    if (status && status.running) {
+                        if (vodPollTimer) { window.clearTimeout(vodPollTimer); }
+                        vodPollTimer = window.setTimeout(function () {
+                            return refreshVodStatus();
+                        }, 3000);
+                    } else if (vodPollTimer) {
+                        window.clearTimeout(vodPollTimer);
+                        vodPollTimer = null;
+                    }
+                }, function () {
+                    // A build without the VOD endpoints simply shows nothing here.
+                });
+            }
+
+            // ---- channel health ----
+
+            // The tab greys out a channel this check could not get data for, so the dashboard shows
+            // the same answer it draws from.
+            function renderChannelHealth(report) {
+                var node = el('protvChannelHealthStatus');
+                if (!node || !report) { return; }
+
+                if (report.running) {
+                    node.textContent = 'Checking the channels now...';
+                    return;
+                }
+
+                if (!report.checked) {
+                    node.textContent = report.lastError
+                        ? 'The last check could not run. ' + report.lastError
+                        : 'No check yet. Channels are checked every six hours, or press "Check channels now".';
+                    return;
+                }
+
+                var parts = [report.online + ' of ' + report.checked + ' channels answer'];
+                if (report.offline) { parts.push(report.offline + ' offline'); }
+                if (report.lastRunUtc) { parts.push('last check: ' + formatTime(report.lastRunUtc)); }
+                if (report.lastError) { parts.push(report.lastError); }
+                node.textContent = parts.join(' \u00b7 ');
+            }
+
+            function refreshChannelHealth() {
+                return ApiClient.getJSON(ApiClient.getUrl('PROTV/Channels/Health')).then(function (report) {
+                    renderChannelHealth(report);
+                    // While the check is running the page follows it, the way the VOD status does.
+                    if (report && report.running) {
+                        if (channelHealthTimer) { window.clearTimeout(channelHealthTimer); }
+                        channelHealthTimer = window.setTimeout(function () {
+                            return refreshChannelHealth();
+                        }, 4000);
+                    } else if (channelHealthTimer) {
+                        window.clearTimeout(channelHealthTimer);
+                        channelHealthTimer = null;
+                    }
+                }, function () {
+                    // A build without the health endpoints simply shows nothing here.
+                });
+            }
+
+            function load() {
+                if (loading) { return; }
+                loading = true;
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    state.config = config;
+                    state.channels = (config.KnownChannels || []).slice().sort(function (a, b) { return a.Id - b.Id; });
+                    state.overrides = {};
+                    (config.ChannelOverrides || []).forEach(function (o) { state.overrides[o.ChannelId] = o; });
+                    fillFields(config);
+                    applyConfiguredLanguage(config);
+                    renderGroups();
+                    renderChannels();
+                    loadCompanionNotice();
+                    loadParentalStatus();
+                    loadUpdateInfo(false);
+                    refreshVodStatus();
+                    refreshServiceStatus();
+                    refreshChannelHealth();
+                }).catch(function (error) {
+                    return describeError(error).then(function (message) {
+                        Dashboard.alert({ title: 'PROTV', text: 'Could not load the PROTV settings. ' + message });
+                    });
+                }).then(function () {
+                    loading = false;
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            function showSaved(result) {
+                try {
+                    if (Dashboard.processPluginConfigurationUpdateResult) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                        return;
+                    }
+                } catch (ignored) { }
+                Dashboard.alert({ title: 'PROTV', text: 'Settings saved.' });
+            }
+
+            // ---- groups, parental PIN, updates and backup ----
+
+            function groupById(id) {
+                for (var i = 0; i < state.groups.length; i++) {
+                    if (String(state.groups[i].Id) === String(id)) { return state.groups[i]; }
+                }
+                return null;
+            }
+
+            function replaceGroupId(oldId, newId) {
+                Object.keys(state.overrides).forEach(function (key) {
+                    if (String(state.overrides[key].GroupId || '') === String(oldId)) {
+                        state.overrides[key].GroupId = newId;
+                    }
+                });
+            }
+
+            function setParentalStatus(status) {
+                state.parental = status || null;
+                var node = el('protvParentalStatus');
+                if (!node) { return; }
+                if (!status) {
+                    node.textContent = '';
+                } else if (status.pinSet) {
+                    node.textContent = 'PIN is set. Locks apply to users who have not unlocked this session.';
+                } else {
+                    node.textContent = 'No PIN is set. Locked channels stay locked until a PIN is saved.';
+                }
+            }
+
+            function loadParentalStatus() {
+                return ApiClient.getJSON(ApiClient.getUrl('PROTV/Parental/Status')).then(setParentalStatus, function () {
+                    setParentalStatus(null);
+                });
+            }
+
+            function saveParentalPin(pin, clear) {
+                return ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl('PROTV/Parental/Pin'),
+                    data: JSON.stringify({ Pin: clear ? '' : pin }),
+                    contentType: 'application/json',
+                    dataType: 'json'
+                });
+            }
+
+            function renderUpdate(info) {
+                var notice = el('protvUpdateNotice');
+                var status = el('protvUpdateStatus');
+                if (!notice || !status) { return; }
+
+                if (!info || !info.configured) {
+                    notice.style.display = 'none';
+                    status.textContent = 'Set the GitHub repository (owner/repo) to enable update checks.';
+                    return;
+                }
+
+                if (info.error) {
+                    notice.style.display = 'none';
+                    status.textContent = info.error;
+                    return;
+                }
+
+                var current = info.currentVersion || '';
+                if (info.updateAvailable) {
+                    var url = info.releaseUrl && /^https:\/\//i.test(info.releaseUrl) ? info.releaseUrl : '';
+                    var link = url ? ' <a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">Open release page</a>' : '';
+                    notice.className = 'protvNotice protvOk';
+                    notice.innerHTML = 'Update available: v' + esc(info.latestVersion || '') + ' (running v' + esc(current) + ').' + link;
+                    notice.style.display = 'block';
+                    status.textContent = 'Update available: v' + (info.latestVersion || '') + '.';
+                } else {
+                    notice.style.display = 'none';
+                    status.textContent = 'Up to date (v' + current + ').';
+                }
+            }
+
+            function loadUpdateInfo(force) {
+                return ApiClient.getJSON(ApiClient.getUrl('PROTV/Update' + (force ? '?force=true' : ''))).then(renderUpdate, function () {
+                    var status = el('protvUpdateStatus');
+                    if (status) { status.textContent = 'Could not check for updates.'; }
+                });
+            }
+
+            var BACKUP_KEYS = [
+                'ApiBaseUrl', 'Username', 'AppId', 'DeviceModel', 'DeviceIpAddress', 'DeviceMacAddress',
+                'RouterMacAddress', 'AppVersion', 'MulticastAddress', 'MulticastPort', 'MulticastInterfaceAddress',
+                'StreamAnalyzeDurationMs', 'DashboardTitle', 'WelcomeMessage', 'SidebarLabel', 'SidebarIcon',
+                'UiLanguage', 'UpdateRepository', 'FrontpageTabEnabled', 'FrontpageTabTitle',
+                'RequireCompanionPlugins', 'VodMoviesEnabled', 'VodSeriesEnabled', 'VodDownloadPosters',
+                'VodDownloadSubtitles', 'VodAssetBudgetGb', 'VodStreamBaseUrl', 'VodSyncIntervalHours',
+                'VodRemoveDeletedTitles', 'ParentalEnabled'
+            ];
+
+            function backupPayload() {
+                var values = readFields();
+                var settings = {};
+                BACKUP_KEYS.forEach(function (key) {
+                    if (values[key] !== undefined) {
+                        settings[key] = values[key];
+                    } else if (state.config && state.config[key] !== undefined) {
+                        settings[key] = state.config[key];
+                    }
+                });
+                settings.ChannelOverrides = readOverrides();
+                settings.ChannelGroups = readGroups();
+                return {
+                    app: 'PROTV',
+                    schema: 1,
+                    exportedUtc: new Date().toISOString(),
+                    pluginVersion: '0.8.0',
+                    settings: settings
+                };
+            }
+
+            function downloadBackup() {
+                var payload = backupPayload();
+                var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                var url = URL.createObjectURL(blob);
+                var link = document.createElement('a');
+                link.href = url;
+                link.download = 'protv-settings-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.json';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+                el('protvBackupStatus').textContent = 'Backup downloaded. Passwords and stream secrets are not included.';
+            }
+
+            function restoreBackup(payload) {
+                if (!payload || payload.app !== 'PROTV' || payload.schema !== 1 || !payload.settings || typeof payload.settings !== 'object') {
+                    throw new Error('This is not a PROTV settings backup.');
+                }
+
+                return ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    var settings = payload.settings;
+                    BACKUP_KEYS.forEach(function (key) {
+                        if (settings[key] !== undefined) { config[key] = settings[key]; }
+                    });
+
+                    if (Array.isArray(settings.ChannelOverrides)) {
+                        config.ChannelOverrides = settings.ChannelOverrides.filter(function (item) {
+                            return item && typeof item === 'object' && typeof item.ChannelId === 'number';
+                        });
+                    }
+
+                    if (Array.isArray(settings.ChannelGroups)) {
+                        config.ChannelGroups = settings.ChannelGroups.filter(function (item) {
+                            return item && typeof item === 'object' && typeof item.Id === 'string' && typeof item.Name === 'string';
+                        });
+                    }
+
+                    // Never restore secrets, even when a hand-edited file contains them.
+                    config.Password = state.savedPassword || config.Password;
+                    return ApiClient.updatePluginConfiguration(pluginId, config);
+                }).then(function () {
+                    return ApiClient.getPluginConfiguration(pluginId);
+                }).then(function (stored) {
+                    state.config = stored;
+                    state.overrides = {};
+                    (stored.ChannelOverrides || []).forEach(function (o) { state.overrides[o.ChannelId] = o; });
+                    fillFields(stored);
+                    applyConfiguredLanguage(stored);
+                    renderGroups();
+                    renderChannels();
+                    loadParentalStatus();
+                    loadUpdateInfo(false);
+                    el('protvBackupStatus').textContent = 'Backup restored. Enter the PROTV password again if it was changed.';
+                    Dashboard.alert({ title: 'PROTV', text: 'Settings restored.' });
+                });
+            }
+
+            // ---- events ----
+
+            el('protvChannelFilter').addEventListener('input', applyFilter);
+            el('protvChannelRows').addEventListener('change', function () {
+                updateChannelCount();
+                applyFilter();
+            });
+
+            el('protvGroupAdd').addEventListener('click', function () {
+                var name = el('protvGroupName').value.trim();
+                if (!name) {
+                    Dashboard.alert({ title: 'PROTV', text: 'Enter a group name first.' });
+                    return;
+                }
+                captureChannelRows();
+                state.groups.push({ Id: newGroupId(), Name: name });
+                el('protvGroupName').value = '';
+                renderGroups();
+                renderChannels();
+            });
+
+            el('protvGroupList').addEventListener('click', function (event) {
+                var button = event.target.closest ? event.target.closest('[data-group-action]') : null;
+                if (!button) { return; }
+                var row = button.parentNode;
+                var id = row.getAttribute('data-group-id');
+                var group = groupById(id);
+                if (!group) { return; }
+
+                captureChannelRows();
+                var index = state.groups.indexOf(group);
+                var action = button.getAttribute('data-group-action');
+                if (action === 'delete') {
+                    if (!window.confirm('Delete the group "' + group.Name + '"? Its channels keep working and move to "Other channels".')) {
+                        return;
+                    }
+                    state.groups.splice(index, 1);
+                    replaceGroupId(id, '');
+                } else if (action === 'up' && index > 0) {
+                    state.groups.splice(index, 1);
+                    state.groups.splice(index - 1, 0, group);
+                } else if (action === 'down' && index < state.groups.length - 1) {
+                    state.groups.splice(index, 1);
+                    state.groups.splice(index + 1, 0, group);
+                } else {
+                    return;
+                }
+
+                renderGroups();
+                renderChannels();
+            });
+
+            el('protvGroupList').addEventListener('change', function (event) {
+                var input = event.target.closest ? event.target.closest('[data-group-name]') : null;
+                if (!input) { return; }
+                var group = groupById(input.parentNode.getAttribute('data-group-id'));
+                if (!group) { return; }
+                group.Name = input.value.trim();
+                captureChannelRows();
+                renderGroups();
+                renderChannels();
+            });
+
+            el('protvParentalSetPin').addEventListener('click', function () {
+                var pin = el('protvParentalPin').value.trim();
+                if (!pin) {
+                    Dashboard.alert({ title: 'PROTV', text: 'Enter a PIN first.' });
+                    return;
+                }
+                if (pin.length < 4 || pin.length > 12) {
+                    Dashboard.alert({ title: 'PROTV', text: 'Use a PIN of 4 to 12 characters.' });
+                    return;
+                }
+                Dashboard.showLoadingMsg();
+                saveParentalPin(pin, false).then(function (status) {
+                    Dashboard.hideLoadingMsg();
+                    setParentalStatus(status);
+                    el('protvParentalPin').value = '';
+                    Dashboard.alert({ title: 'PROTV', text: 'PIN saved.' });
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    describeError(error).then(function (message) {
+                        Dashboard.alert({ title: 'PROTV', text: 'Could not save the PIN. ' + message });
+                    });
+                });
+            });
+
+            el('protvParentalClearPin').addEventListener('click', function () {
+                if (!window.confirm('Clear the parental PIN? Locked channels stay locked until a new PIN is set.')) { return; }
+                Dashboard.showLoadingMsg();
+                saveParentalPin('', true).then(function (status) {
+                    Dashboard.hideLoadingMsg();
+                    setParentalStatus(status);
+                    Dashboard.alert({ title: 'PROTV', text: 'PIN cleared.' });
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    describeError(error).then(function (message) {
+                        Dashboard.alert({ title: 'PROTV', text: 'Could not clear the PIN. ' + message });
+                    });
+                });
+            });
+
+            el('protvUpdateCheck').addEventListener('click', function () {
+                Dashboard.showLoadingMsg();
+                loadUpdateInfo(true).then(function () {
+                    Dashboard.hideLoadingMsg();
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            el('protvBackupExport').addEventListener('click', downloadBackup);
+            el('protvBackupImport').addEventListener('click', function () {
+                el('protvBackupFile').click();
+            });
+
+            el('protvBackupFile').addEventListener('change', function () {
+                var input = this;
+                var file = input.files && input.files[0];
+                if (!file) { return; }
+
+                var reader = new FileReader();
+                reader.onload = function () {
+                    var payload;
+                    try {
+                        payload = JSON.parse(String(reader.result || ''));
+                    } catch (error) {
+                        Dashboard.alert({ title: 'PROTV', text: 'That file is not valid JSON.' });
+                        input.value = '';
+                        return;
+                    }
+
+                    if (!payload || payload.app !== 'PROTV' || payload.schema !== 1 || !payload.settings) {
+                        Dashboard.alert({ title: 'PROTV', text: 'That file is not a PROTV settings backup.' });
+                        input.value = '';
+                        return;
+                    }
+
+                    if (!window.confirm('Restore this backup? Current non-secret settings are replaced; the saved password stays.')) {
+                        input.value = '';
+                        return;
+                    }
+
+                    Dashboard.showLoadingMsg();
+                    restoreBackup(payload).then(function () {
+                        Dashboard.hideLoadingMsg();
+                    }).catch(function (error) {
+                        Dashboard.hideLoadingMsg();
+                        describeError(error).then(function (message) {
+                            Dashboard.alert({ title: 'PROTV', text: 'Could not restore the backup. ' + message });
+                        });
+                    });
+                    input.value = '';
+                };
+                reader.onerror = function () {
+                    Dashboard.alert({ title: 'PROTV', text: 'Could not read the backup file.' });
+                    input.value = '';
+                };
+                reader.readAsText(file);
+            });
+
+            el('protvRefreshGuide').addEventListener('click', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getJSON(ApiClient.getUrl('ScheduledTasks')).then(function (tasks) {
+                    var task = (tasks || []).filter(function (t) { return t.Key === 'RefreshGuide'; })[0];
+                    if (!task) { throw new Error('The Refresh Guide task was not found.'); }
+                    return ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('ScheduledTasks/Running/' + task.Id) });
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert({ title: 'PROTV', text: 'Guide refresh started. It runs in the background.' });
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    describeError(error).then(function (message) {
+                        Dashboard.alert({ title: 'PROTV', text: 'Could not start the guide refresh. ' + message });
+                    });
+                });
+            });
+
+            el('protvVodSync').addEventListener('click', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl('PROTV/Vod/Sync'),
+                    dataType: 'json'
+                }).then(function (status) {
+                    Dashboard.hideLoadingMsg();
+                    renderVodStatus(status);
+                    refreshVodStatus();
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    describeError(error).then(function (message) {
+                        Dashboard.alert({ title: 'PROTV', text: 'Could not start the VOD sync. ' + message });
+                    });
+                });
+            });
+
+            el('protvVodRefreshStatus').addEventListener('click', function () {
+                refreshVodStatus();
+            });
+
+            el('protvRefreshServiceStatus').addEventListener('click', function () {
+                refreshServiceStatus();
+            });
+
+            el('protvChannelHealthRefresh').addEventListener('click', function () {
+                refreshChannelHealth();
+            });
+
+            el('protvChannelHealthCheck').addEventListener('click', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl('PROTV/Channels/Health/Check'),
+                    dataType: 'json'
+                }).then(function (report) {
+                    Dashboard.hideLoadingMsg();
+                    renderChannelHealth(report);
+                    refreshChannelHealth();
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    describeError(error).then(function (message) {
+                        Dashboard.alert({ title: 'PROTV', text: 'Could not start the channel check. ' + message });
+                    });
+                });
+            });
+
+            // Switching the language on this page redraws it straight away, before it is saved.
+            el('protvUiLanguage').addEventListener('change', function () {
+                language = resolveLanguage(el('protvUiLanguage').value);
+                localize(page);
+            });
+
+            // ---- connection test and diagnostic report ----
+
+            function showTestResult(kind, text) {
+                var box = el('protvTestResult');
+                box.className = 'protvNotice ' + kind;
+                box.textContent = text;
+                box.style.display = 'block';
+            }
+
+            el('protvTestConnection').addEventListener('click', function () {
+                var fields = readFields();
+                var button = el('protvTestConnection');
+                button.disabled = true;
+                showTestResult('protvWarn', 'Testing the connection...');
+                ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl('PROTV/TestConnection'),
+                    data: JSON.stringify({
+                        ApiBaseUrl: fields.ApiBaseUrl,
+                        Username: fields.Username,
+                        Password: fields.Password,
+                        AppId: fields.AppId,
+                        DeviceModel: fields.DeviceModel,
+                        DeviceIpAddress: fields.DeviceIpAddress,
+                        DeviceMacAddress: fields.DeviceMacAddress,
+                        RouterMacAddress: fields.RouterMacAddress
+                    }),
+                    contentType: 'application/json',
+                    dataType: 'json'
+                }).then(function (result) {
+                    showTestResult(result && result.ok ? 'protvOk' : 'protvBad', (result && result.message) || 'The server sent no answer.');
+                }).catch(function (error) {
+                    describeError(error).then(function (message) {
+                        showTestResult('protvBad', 'The test could not run. ' + message);
+                    });
+                }).then(function () {
+                    button.disabled = false;
+                });
+            });
+
+            // The clipboard API only works on https pages; plain http (a LAN address) needs the
+            // old select-and-copy way, and when that fails the text is left selected for Ctrl+C.
+            function copyText(text) {
+                if (navigator.clipboard && window.isSecureContext) {
+                    return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return false; });
+                }
+
+                var area = el('protvReportText');
+                area.focus();
+                area.select();
+                var copied = false;
+                try { copied = document.execCommand('copy'); } catch (ignored) { }
+                return Promise.resolve(copied);
+            }
+
+            el('protvCreateReport').addEventListener('click', function () {
+                var status = el('protvReportStatus');
+                status.textContent = 'Creating the report...';
+                ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('PROTV/Diagnostics'), dataType: 'text' }).then(function (text) {
+                    var area = el('protvReportText');
+                    area.value = text;
+                    area.style.display = 'block';
+                    return copyText(text).then(function (copied) {
+                        status.textContent = copied
+                            ? 'Report copied. Paste it into your bug report.'
+                            : 'Select the text above and copy it with Ctrl+C.';
+                    });
+                }).catch(function (error) {
+                    describeError(error).then(function (message) {
+                        status.textContent = 'Could not create the report. ' + message;
+                    });
+                });
+            });
+
+            // ---- interface language ---------------------------------------------------------
+            // Jellyfin draws this page inside its own settings shell, and the page rebuilds parts
+            // of itself while it loads, so the Arabic strings are swapped in the DOM after the
+            // rendering (one observer keeps up with anything that changes later) and the page is
+            // flipped to right to left. "auto" follows the browser; the setting on this page wins.
+            var language = resolveLanguage('auto');
+            var languageObserver = null;
+            var WATCHED = ['label', 'placeholder', 'title', 'aria-label'];
+            var INLINE = ['A', 'B', 'CODE', 'EM', 'I', 'SPAN', 'STRONG'];
+
+            // Whole strings first, then the pieces the page assembles at run time: counts, HTTP
+            // codes and the answers the plugin itself sends back. Anything that does not match is
+            // left exactly as it was, so values (a library name, a channel name, a stream address)
+            // are never touched.
+            var AR_RULES = [
+                [/^Reliability$/, 'الموثوقية'],
+                [/^Retry briefly and pause after repeated PROTV failures$/, 'إعادة المحاولة لفترة وجيزة والتوقف مؤقتاً بعد تكرار أعطال PROTV'],
+                [/^Short retries for reads from PROTV, then a pause of up to a minute after repeated failures so a PROTV outage is not hammered\. A rejected login or request is never retried\. Turn off to ask PROTV on every request\.$/, 'إعادات محاولة قصيرة لقراءة البيانات من PROTV، ثم توقف لمدة تصل إلى دقيقة بعد تكرار الأعطال حتى لا تُرهَق الخدمة أثناء انقطاعها. لا تُعاد محاولة تسجيل دخول أو طلب مرفوض أبداً. أوقفه لمراجعة PROTV عند كل طلب.'],
+                [/^Check PROTV status$/, 'فحص حالة PROTV'],
+                [/^The PROTV status is not available\.$/, 'حالة PROTV غير متاحة.'],
+                [/^PROTV is answering\.$/, 'PROTV يعمل ويستجيب.'],
+                [/^PROTV is slow or not answering; the plugin is retrying \(since (.+)\)\.$/, 'PROTV بطيء أو لا يرد؛ تعيد الإضافة المحاولة (منذ $1).'],
+                [/^PROTV has not answered since (.+); the plugin has paused its requests and tries again shortly\.$/, 'لم ترد PROTV منذ $1؛ أوقفت الإضافة طلباتها مؤقتاً وستحاول مجدداً بعد قليل.'],
+                [/^PROTV Dashboard$/, 'لوحة تحكم PROTV'],
+                [/^Account$/, 'الحساب'],
+                [/^Service$/, 'الخدمة'],
+                [/^Channels$/, 'القنوات'],
+                [/^Channel groups$/, 'مجموعات القنوات'],
+                [/^Parental controls$/, 'الرقابة الأبوية'],
+                [/^Updates$/, 'التحديثات'],
+                [/^Backup and restore$/, 'النسخ الاحتياطي والاستعادة'],
+                [/^Appearance$/, 'المظهر'],
+                [/^Device and streaming$/, 'الجهاز والبث'],
+                [/^Jellyfin home page tab$/, 'تبويب الصفحة الرئيسية'],
+                [/^Films and series \(VOD\)$/, 'الأفلام والمسلسلات (VOD)'],
+                [/^Diagnostics$/, 'التشخيص'],
+                [/^Username$/, 'اسم المستخدم'],
+                [/^Password$/, 'كلمة المرور'],
+                [/^Encrypted in this server's plugin settings with a key kept outside the settings file\. Leave the field empty to keep the saved password\.$/, 'مشفّرة في إعدادات الإضافة على هذا الخادم بمفتاح محفوظ خارج ملف الإعدادات. اترك الحقل فارغاً للإبقاء على كلمة المرور المحفوظة.'],
+                [/^Saved \(encrypted\) — leave empty to keep it$/, 'محفوظة (مشفّرة) — اتركه فارغاً للإبقاء عليها'],
+                [/^API base URL$/, 'عنوان واجهة PROTV'],
+                [/^Address of the PROTV service, including the port\.$/, 'عنوان خدمة PROTV مع المنفذ.'],
+                [/^App ID$/, 'معرّف التطبيق'],
+                [/^Identifier the PROTV app signs in with\. Change it only if the service requires a different one\.$/, 'المعرّف الذي يسجّل به تطبيق PROTV الدخول. غيّره فقط إذا طلبت الخدمة معرّفاً مختلفاً.'],
+                [/^Device model$/, 'طراز الجهاز'],
+                [/^Name this server reports to PROTV\. Use a fixed name when running in Docker\.$/, 'الاسم الذي يعلنه هذا الخادم إلى PROTV. استخدم اسماً ثابتاً عند التشغيل في Docker.'],
+                [/^Test connection$/, 'اختبار الاتصال'],
+                [/^Uses the values above, even if they are not saved yet\.$/, 'يستخدم القيم أعلاه حتى لو لم تُحفظ بعد.'],
+                [/^Rename, hide, reorder or change the logo of any channel\. Channel IDs never change\. Lower priority numbers are listed first; channels with the same priority are sorted by name\. Mark favourites, put channels into groups and lock the ones that need the parental PIN\. After saving, run Refresh Guide so Live TV picks up the changes\.$/, 'غيّر اسم أي قناة أو أخفها أو رتّبها أو غيّر شعارها. معرّفات القنوات لا تتغير. الأولوية الأصغر تُعرض أولاً، والمتساوية تُرتَّب بالاسم. ضع علامة المفضلة، وأضف القنوات إلى مجموعات، واقفل ما يحتاج إلى رمز الرقابة الأبوية. بعد الحفظ شغّل تحديث دليل البرامج لتظهر التغييرات في البث المباشر.'],
+                [/^Filter channels$/, 'ابحث في القنوات'],
+                [/^No channels yet\. Add the PROTV tuner under Live TV and run Refresh Guide; the channels appear here once the plugin has loaded them\.$/, 'لا توجد قنوات بعد. أضف موالف PROTV في البث المباشر وشغّل تحديث دليل البرامج؛ ستظهر القنوات هنا بعد تحميلها.'],
+                [/^PROTV name$/, 'اسم PROTV'],
+                [/^Custom name$/, 'اسم مخصص'],
+                [/^Priority$/, 'الأولوية'],
+                [/^Logo URL$/, 'رابط الشعار'],
+                [/^Hidden$/, 'مخفي'],
+                [/^Favourite$/, 'مفضلة'],
+                [/^Group$/, 'المجموعة'],
+                [/^Locked$/, 'مقفلة'],
+                [/^Refresh guide now$/, 'تحديث دليل البرامج الآن'],
+                [/^Groups appear as sections on the PROTV home page tab, in the order shown here\. Favourites always get their own section first\. Channel group names are shown exactly as typed\.$/, 'تظهر المجموعات كأقسام في تبويب PROTV بالصفحة الرئيسية، بالترتيب المعروض هنا. تحصل المفضلة دائماً على قسمها الخاص أولاً. تُعرض أسماء مجموعات القنوات كما كُتبت تماماً.'],
+                [/^New group name$/, 'اسم مجموعة جديدة'],
+                [/^Add group$/, 'إضافة مجموعة'],
+                [/^No groups yet\.$/, 'لا توجد مجموعات بعد.'],
+                [/^Move up$/, 'تحريك لأعلى'],
+                [/^Move down$/, 'تحريك لأسفل'],
+                [/^Delete$/, 'حذف'],
+                [/^Group name$/, 'اسم المجموعة'],
+                [/^No group$/, 'بلا مجموعة'],
+                [/^Locks the channels ticked in the table above behind a PIN on the PROTV home page tab\. Each Jellyfin user unlocks their own session for twelve hours\. Use Jellyfin's per-user Live TV permissions as the hard access control; this is the convenient remote-level lock\.$/, 'يقفل القنوات المؤشَّرة في الجدول أعلاه خلف رمز سري في تبويب PROTV بالصفحة الرئيسية. يفتح كل مستخدم Jellyfin جلسته لمدة اثنتي عشرة ساعة. استخدم أذونات البث المباشر لكل مستخدم في Jellyfin كتحكّم وصول صارم؛ هذا قفل مريح على مستوى جهاز التحكم.'],
+                [/^Enable parental locks on the PROTV tab$/, 'تفعيل الأقفال الأبوية في تبويب PROTV'],
+                [/^New PIN$/, 'رمز سري جديد'],
+                [/^New PIN \(4–12 characters\)$/, 'رمز سري جديد (4–12 حرفاً)'],
+                [/^Set PIN$/, 'تعيين الرمز'],
+                [/^Clear PIN$/, 'مسح الرمز'],
+                [/^PIN is set\. Locks apply to users who have not unlocked this session\.$/, 'الرمز السري معيّن. تُطبَّق الأقفال على المستخدمين الذين لم يفتحوا هذه الجلسة.'],
+                [/^No PIN is set\. Locked channels stay locked until a PIN is saved\.$/, 'لا يوجد رمز سري معيّن. تبقى القنوات المقفلة مقفلة حتى يُحفظ رمز.'],
+                [/^Enter a PIN first\.$/, 'أدخل رمزاً سرياً أولاً.'],
+                [/^Use a PIN of 4 to 12 characters\.$/, 'استخدم رمزاً سرياً من 4 إلى 12 حرفاً.'],
+                [/^PIN saved\.$/, 'تم حفظ الرمز السري.'],
+                [/^The server cannot create or read its secret key\. Saving settings is blocked so the PROTV password and VOD signing secret are not written in clear text\. Fix access to the protv folder in the Jellyfin data directory and restart Jellyfin; re-enter the password if it can no longer be decrypted\.$/, 'تعذّر على الخادم إنشاء مفتاح الأسرار أو قراءته. تم منع حفظ الإعدادات كي لا تُكتب كلمة مرور PROTV وسر توقيع VOD كنص واضح. أصلح صلاحية الوصول إلى مجلد protv داخل مجلد بيانات Jellyfin وأعد تشغيل Jellyfin، ثم أعد إدخال كلمة المرور إذا تعذّرت قراءتها.'],
+                [/^Clear the parental PIN\? Locked channels stay locked until a new PIN is set\.$/, 'مسح الرمز السري للأقفال؟ ستبقى القنوات المقفلة مقفلة حتى يُعيَّن رمز جديد.'],
+                [/^PIN cleared\.$/, 'تم مسح الرمز السري.'],
+                [/^Could not save the PIN\. /, 'تعذّر حفظ الرمز السري. '],
+                [/^Could not clear the PIN\. /, 'تعذّر مسح الرمز السري. '],
+                [/^Public repository whose latest release is compared with this plugin's version\. Leave it empty to hide the update notice\. Only the public GitHub release endpoint is read\.$/, 'مستودع عام يُقارَن أحدث إصدار فيه بإصدار هذه الإضافة. اتركه فارغاً لإخفاء إشعار التحديث. لا يُقرأ سوى رابط الإصدار العام على GitHub.'],
+                [/^GitHub repository \(owner\/repo\)$/, 'مستودع GitHub (المالك\/المستودع)'],
+                [/^Check for updates now$/, 'التحقق من التحديثات الآن'],
+                [/^Set the GitHub repository \(owner\/repo\) to enable update checks\.$/, 'حدّد مستودع GitHub (المالك\/المستودع) لتفعيل التحقق من التحديثات.'],
+                [/^Could not check for updates\.$/, 'تعذّر التحقق من التحديثات.'],
+                [/^Up to date \(v(.+)\)\.$/, 'محدّث (الإصدار $1).'],
+                [/^Update available: v(.+) \(running v(.+)\)\.?$/, 'يتوفر تحديث: الإصدار $1 (تعمل النسخة $2).'],
+                [/^Update available: v(.+)\.$/, 'يتوفر تحديث: الإصدار $1.'],
+                [/^Open release page$/, 'فتح صفحة الإصدار'],
+                [/^Saves the settings you can see on this page to a JSON file, including channel names, groups, favourites and parental locks\. Passwords and stream-signing secrets are deliberately left out, so after restoring on another server enter the PROTV password again\.$/, 'يحفظ الإعدادات الظاهرة في هذه الصفحة في ملف JSON، بما فيها أسماء القنوات والمجموعات والمفضلة والأقفال الأبوية. تُستبعد كلمات المرور وأسرار توقيع البث عمداً، لذا بعد الاستعادة على خادم آخر أدخل كلمة مرور PROTV مرة أخرى.'],
+                [/^Download backup$/, 'تنزيل نسخة احتياطية'],
+                [/^Restore backup$/, 'استعادة نسخة احتياطية'],
+                [/^Backup downloaded\. Passwords and stream secrets are not included\.$/, 'تم تنزيل النسخة الاحتياطية. لا تتضمن كلمات المرور وأسرار البث.'],
+                [/^Backup restored\. Enter the PROTV password again if it was changed\.$/, 'تمت استعادة النسخة الاحتياطية. أدخل كلمة مرور PROTV مرة أخرى إذا تغيّرت.'],
+                [/^Settings restored\.$/, 'تمت استعادة الإعدادات.'],
+                [/^That file is not valid JSON\.$/, 'ذلك الملف ليس JSON صالحاً.'],
+                [/^That file is not a PROTV settings backup\.$/, 'ذلك الملف ليس نسخة احتياطية لإعدادات PROTV.'],
+                [/^Could not restore the backup\. /, 'تعذّرت استعادة النسخة الاحتياطية. '],
+                [/^Could not read the backup file\.$/, 'تعذّرت قراءة ملف النسخة الاحتياطية.'],
+                [/^Enter a group name first\.$/, 'أدخل اسم مجموعة أولاً.'],
+                [/^(\d+) channels, (\d+) hidden, (\d+) favourites, (\d+) locked$/, '$1 قناة، $2 مخفية، $3 مفضلة، $4 مقفلة'],
+                [/^Page heading$/, 'عنوان الصفحة'],
+                [/^Message under the heading$/, 'رسالة تحت العنوان'],
+                [/^Menu label$/, 'نص القائمة'],
+                [/^Name of the PROTV entry in the dashboard menu and the Plugin Pages sidebar\. Reload the page \(and restart Jellyfin for the sidebar\) to see it\.$/, 'اسم مدخل PROTV في قائمة لوحة التحكم وشريط Plugin Pages. أعد تحميل الصفحة (وأعد تشغيل Jellyfin للشريط الجانبي) لرؤيته.'],
+                [/^Menu icon$/, 'أيقونة القائمة'],
+                [/^A Material icon name, for example live_tv, tv or satellite_alt\.$/, 'اسم أيقونة Material، مثل live_tv أو tv أو satellite_alt.'],
+                [/^Interface language$/, 'لغة الواجهة'],
+                [/^Automatic \(follow the browser\)$/, 'تلقائي (حسب المتصفح)'],
+                [/^English$/, 'الإنجليزية'],
+                [/^Language of this page and of the PROTV tab on the Jellyfin home page\. Arabic is drawn right to left\.$/, 'لغة هذه الصفحة وتبويب PROTV في الصفحة الرئيسية لـ Jellyfin. العربية تُعرض من اليمين إلى اليسار.'],
+                [/^Device IP address$/, 'عنوان IP للجهاز'],
+                [/^Address this server reports to PROTV\. Leave empty to detect it automatically\.$/, 'العنوان الذي يعلنه هذا الخادم إلى PROTV. اتركه فارغاً للكشف التلقائي.'],
+                [/^Device MAC address$/, 'عنوان MAC للجهاز'],
+                [/^Router MAC address$/, 'عنوان MAC للموجّه'],
+                [/^Multicast network interface \(IP address\)$/, 'واجهة شبكة البث المتعدد (عنوان IP)'],
+                [/^IP of the network card that receives the PROTV multicast streams\. Only needed when the server has several network cards\.$/, 'عنوان IP لكرت الشبكة الذي يستقبل بث PROTV المتعدد. لا يلزم إلا عندما يكون في الخادم عدة كروت شبكة.'],
+                [/^Stream analysis time \(ms\)$/, 'زمن تحليل البث (مللي ثانية)'],
+                [/^Lower starts playback faster; too low can miss audio tracks\. 0 uses Jellyfin's default\.$/, 'القيم الأصغر تبدأ التشغيل أسرع، لكن الصغيرة جداً قد تفقد مسارات الصوت. القيمة 0 تعني إعداد Jellyfin الافتراضي.'],
+                [/^Adds a PROTV tab next to Favorites on the Jellyfin home page, listing every channel this tuner serves with the same numbering and names Live TV uses\. The tab is drawn by the Custom Tabs plugin, so Plugin Pages, File Transformation and Custom Tabs all have to be installed and running\.$/, 'يضيف تبويباً باسم PROTV بجانب المفضلة في الصفحة الرئيسية لـ Jellyfin، يعرض كل قناة يوفرها هذا الموالف بنفس الأرقام والأسماء في البث المباشر. يرسُم التبويب إضافة Custom Tabs، لذا يجب تثبيت Plugin Pages وFile Transformation وCustom Tabs وتشغيلها.'],
+                [/^Show the PROTV tab on the Jellyfin home page$/, 'إظهار تبويب PROTV في الصفحة الرئيسية لـ Jellyfin'],
+                [/^Restart Jellyfin after changing this\.$/, 'أعد تشغيل Jellyfin بعد تغيير هذا.'],
+                [/^Home page tab label$/, 'نص تبويب الصفحة الرئيسية'],
+                [/^Text on the tab\. Restart Jellyfin after changing it\.$/, 'النص الظاهر على التبويب. أعد تشغيل Jellyfin بعد تغييره.'],
+                [/^Require Plugin Pages, File Transformation and Custom Tabs$/, 'اشتراط Plugin Pages وFile Transformation وCustom Tabs'],
+                [/^Mirror films into the library$/, 'نسخ الأفلام إلى المكتبة'],
+                [/^Mirror series, seasons and episodes into the library$/, 'نسخ المسلسلات والمواسم والحلقات إلى المكتبة'],
+                [/^Download posters$/, 'تنزيل الملصقات'],
+                [/^The slowest part of the first sync\. Turn it off to keep only the metadata and streams, and add posters with a later sync\.$/, 'أبطأ جزء في المزامنة الأولى. أوقفه للاحتفاظ بالبيانات الوصفية والبث فقط، ثم أضف الملصقات في مزامنة لاحقة.'],
+                [/^Download subtitles$/, 'تنزيل الترجمات'],
+                [/^Fetches the subtitle PROTV has for a film or an episode and stores it next to the stream, so Jellyfin offers it while playing\. Skipped once the download limit below is reached\.$/, 'ينزّل الترجمة التي يوفرها PROTV للفيلم أو الحلقة ويحفظها بجانب البث ليقدّمها Jellyfin أثناء التشغيل. يُتجاوز بعد بلوغ حد التنزيل أدناه.'],
+                [/^Download limit \(GB\)$/, 'حد التنزيل (غيغابايت)'],
+                [/^How much the sync may download in total \(posters, subtitles and the library icons\)\. Once the limit is reached the catalogue is still mirrored, but nothing more is downloaded\. 0 = no limit\.$/, 'إجمالي ما يجوز للمزامنة تنزيله (الملصقات والترجمات وأيقونات المكتبة). بعد بلوغ الحد يبقى الفهرس منسوخاً لكن لا يُنزَّل شيء إضافي. 0 = بلا حد.'],
+                [/^Stream address$/, 'عنوان البث'],
+                [/^Sync every \(hours\)$/, 'المزامنة كل (ساعات)'],
+                [/^How often Jellyfin runs the VOD sync\. Used the first time the task is created; change it later in Dashboard > Scheduled Tasks\.$/, 'كم مرة يشغّل Jellyfin مزامنة VOD. يُستخدم عند إنشاء المهمة أول مرة؛ غيّره لاحقاً من لوحة التحكم > المهام المجدولة.'],
+                [/^Sync now$/, 'مزامنة الآن'],
+                [/^Refresh status$/, 'تحديث الحالة'],
+                [/^Creates a report of versions, companion plugins, settings and recent errors to paste into a bug report\. Passwords and secrets are never included, and IP addresses are shortened\.$/, 'ينشئ تقريراً بالإصدارات والإضافات المرافقة والإعدادات والأخطاء الأخيرة لتلصقه في تقرير مشكلة. لا تُضمَّن كلمات المرور ولا الأسرار، وتُختصر عناوين IP.'],
+                [/^Create diagnostic report$/, 'إنشاء تقرير تشخيصي'],
+                [/^Channel health$/, 'حالة القنوات'],
+                [/^Check channels now$/, 'افحص القنوات الآن'],
+                [/^Checking the channels now\.\.\.$/, 'جارٍ فحص القنوات...'],
+                [/^Asks PROTV for every channel's stream address and checks that data really arrives, so the home page tab can grey out a channel that has no stream instead of leaving the viewer waiting on a spinner\. It runs on its own every six hours, keeps its answer in memory only, and never writes to your settings\.$/, 'يسأل PROTV عن عنوان بث كل قناة ويتحقق من وصول البيانات فعلاً، ليُبهت تبويب الصفحة الرئيسية أي قناة لا بث لها بدل ترك المشاهد ينتظر. يعمل من تلقاء نفسه كل ست ساعات، ويحفظ نتيجته في الذاكرة فقط، ولا يكتب في إعداداتك أبداً.'],
+                [/^No check yet\. Channels are checked every six hours, or press "Check channels now"\.$/, 'لم يتم الفحص بعد. تُفحص القنوات كل ست ساعات، أو اضغط "افحص القنوات الآن".'],
+                [/^The last check could not run\. /, 'تعذّر إجراء الفحص الأخير. '],
+                [/^Could not start the channel check\. /, 'تعذّر بدء فحص القنوات. '],
+                [/^When on, PROTV does not start its tuner, guide or pages unless all three plugins are installed\. Turn it off to keep Live TV running without the home page tab\.$/, 'عند التفعيل لا يشغّل PROTV الموالف ولا دليل البرامج ولا الصفحات إلا بعد تثبيت الإضافات الثلاث. أوقفه لإبقاء البث المباشر يعمل بدون تبويب الصفحة الرئيسية.'],
+                [/^Builds a real Jellyfin library \(PROTV VOD\) out of the PROTV film and series catalogue, so films and episodes play in every Jellyfin app, not only in the web browser\. Every film and episode becomes a Jellyfin item whose stream is resolved from PROTV when it is played\. The first sync writes the whole catalogue and can take a while; later runs only add what is new\.$/, 'ينشئ مكتبة Jellyfin حقيقية (PROTV VOD) من فهرس أفلام ومسلسلات PROTV، لتُشغَّل الأفلام والحلقات في كل تطبيقات Jellyfin لا في متصفح الويب فقط. يصبح كل فيلم وكل حلقة عنصراً في Jellyfin يُحلّ بثّه من PROTV عند التشغيل. المزامنة الأولى تكتب الفهرس كاملاً وقد تستغرق وقتاً؛ والمزامنات التالية تضيف الجديد فقط.'],
+                [/^The address the library's streams point back at\. Leave it empty to let PROTV ask Jellyfin for its own LAN address, which is right on almost every setup\. Set it when clients reach this server through another name, for example http:\/\/jellyfin\.lan:8096\.$/, 'العنوان الذي تشير إليه بثوث المكتبة. اتركه فارغاً ليطلب PROTV من Jellyfin عنوانه المحلي، وهو الصحيح في معظم الإعدادات. حدّده عندما يصل العملاء إلى هذا الخادم باسم آخر، مثل http://jellyfin.lan:8096.'],
+                [/^Save$/, 'حفظ'],
+                // The VOD introduction wraps the library name in <strong id=...>, so its sentence
+                // arrives in pieces and only the two text parts are translated.
+                [/^Builds a real Jellyfin library \($/, 'ينشئ مكتبة Jellyfin حقيقية ('],
+                [/^\) out of the PROTV film and series catalogue, so films and episodes play in every Jellyfin app, not only in the web browser\. Every film and episode becomes a Jellyfin item whose stream is resolved from PROTV when it is played\. The first sync writes the whole catalogue and can take a while; later runs only add what is new\.$/,
+                    ') من فهرس أفلام ومسلسلات PROTV، لتُشغَّل الأفلام والحلقات في كل تطبيقات Jellyfin لا في متصفح الويب فقط. يصبح كل فيلم وكل حلقة عنصراً في Jellyfin يُحلّ بثّه من PROTV عند التشغيل. المزامنة الأولى تكتب الفهرس كاملاً وقد تستغرق وقتاً؛ والمزامنات التالية تضيف الجديد فقط.'],
+
+                // Notices and the status line are assembled from pieces, so whole sentences come
+                // before the words they contain.
+                [/Home page tab dependencies:/g, 'متطلبات تبويب الصفحة الرئيسية:'],
+                [/The PROTV sidebar entry and home page tab need all three installed and running\./g, 'يحتاج مدخل PROTV في الشريط الجانبي وتبويب الصفحة الرئيسية إلى تثبيت الإضافات الثلاث وتشغيلها.'],
+                [/Install the build that matches this Jellyfin version and restart Jellyfin\./g, 'ثبّت الإصدار المطابق لإصدار Jellyfin هذا وأعد تشغيل Jellyfin.'],
+                [/Require Companion Plugins is on, so PROTV keeps its tuner, guide and pages off until they are\./g, ' خيار اشتراط الإضافات المرافقة مُفعّل، لذا يُبقي PROTV الموالف ودليل البرامج والصفحات متوقفة حتى تُثبَّت.'],
+                [/The PROTV tab is registered on the Jellyfin home page\./g, 'تبويب PROTV مسجّل في الصفحة الرئيسية لـ Jellyfin.'],
+                [/The tab is enabled but not registered yet; restart Jellyfin\./g, 'التبويب مُفعّل لكنه غير مسجّل بعد؛ أعد تشغيل Jellyfin.'],
+                [/The PROTV home page tab is switched off below\./g, 'تبويب PROTV في الصفحة الرئيسية متوقف من الأسفل.'],
+                [/channels are stored for the tab\./g, 'قناة محفوظة للتبويب.'],
+                [/Syncing now\.\.\./g, 'جارٍ المزامنة...'],
+                [/VOD is switched off\./g, 'ميزة VOD متوقفة.'],
+                [/The libraries are not in Jellyfin yet; press "Sync now"\./g, 'المكتبات غير مضافة إلى Jellyfin بعد؛ اضغط "مزامنة الآن".'],
+                [/Libraries ready/g, 'المكتبات جاهزة'],
+                [/last sync:/g, 'آخر مزامنة:'],
+                [/last run failed/g, 'فشل التشغيل الأخير'],
+                [/last run was cancelled/g, 'أُلغي التشغيل الأخير'],
+                [/last check: /g, 'آخر فحص: '],
+                [/(\d+) of (\d+) channels answer/g, '$1 من $2 قناة تستجيب'],
+                [/(\d+) offline\b/g, '$1 غير متاحة'],
+                [/Streams point at:/g, 'يُبَث عبر:'],
+                [/Downloaded:/g, 'تم تنزيل:'],
+                [/Libraries:/g, 'المكتبات:'],
+                [/Files:/g, 'الملفات:'],
+                [/Last error:/g, 'آخر خطأ:'],
+                [/([\d,]+) films\b/g, '$1 فيلم'],
+                [/([\d,]+) series\b/g, '$1 مسلسل'],
+                [/([\d,]+) episodes\b/g, '$1 حلقة'],
+                [/([\d,]+) subtitles\b/g, '$1 ترجمة'],
+                [/([\d,]+) channels, ([\d,]+) hidden\b/g, '$1 قناة، $2 مخفية'],
+                [/([\d,]+) favourites\b/g, '$1 مفضلة'],
+                [/([\d,]+) locked\b/g, '$1 مقفلة'],
+                [/\(limit reached: no more posters or subtitles were downloaded\)/g, '(تم بلوغ الحد: لمزيد من الملصقات أو الترجمات)'],
+                [/\(series library missing\)/g, '(مكتبة المسلسلات مفقودة)'],
+                [/\(PROTV logo\)/g, '(شعار PROTV)'],
+                [/installed but not loaded/g, 'مثبّتة لكنها غير محمّلة'],
+                [/installed and running/g, 'مثبّتة وتعمل'],
+                [/not installed/g, 'غير مثبّتة'],
+                [/^of$/, 'من'],
+                [/^and$/, 'و'],
+                [/Testing the connection\.\.\./g, 'جارٍ اختبار الاتصال...'],
+                [/Creating the report\.\.\./g, 'جارٍ إنشاء التقرير...'],
+                [/Report copied\. Paste it into your bug report\./g, 'تم نسخ التقرير. الصقه في تقرير المشكلة.'],
+                [/Select the text above and copy it with Ctrl\+C\./g, 'حدّد النص أعلاه وانسخه بـ Ctrl+C.'],
+                [/The test could not run\. /g, 'تعذّر تنفيذ الاختبار. '],
+                [/^Connected\. PROTV answered with ([\d,]+) channels in ([\d.]+) s\.$/, 'تم الاتصال. استجاب PROTV بـ $1 قناة خلال $2 ثانية.'],
+                [/^No answer from (.+) within 20 seconds\. Check that this server can reach the PROTV network \(and, in Docker, that it uses host networking\)\.$/,
+                    'لا استجابة من $1 خلال 20 ثانية. تأكد من أن هذا الخادم يستطيع الوصول إلى شبكة PROTV (وفي Docker من استخدام host networking).'],
+                [/^Could not reach (.+)\. /, 'تعذّر الوصول إلى $1. '],
+                [/^PROTV did not accept the request: /, 'لم يقبل PROTV الطلب: '],
+                [/^No settings were sent\.$/, 'لم تُرسل أي إعدادات.'],
+                [/^The API base URL is not a valid web address\. It looks like http:\/\/10\.1\.0\.8:82\.$/, 'عنوان واجهة PROTV غير صالح. الصيغة مثل http://10.1.0.8:82.'],
+                [/^Enter the username and password first\.$/, 'أدخل اسم المستخدم وكلمة المرور أولاً.'],
+                [/^A test is already running\. Wait for it to finish\.$/, 'هناك اختبار قيد التنفيذ. انتظر انتهاءه.'],
+                [/^The server sent no answer\.$/, 'لم يُرسل الخادم أي رد.'],
+                [/^Unable to save PROTV settings\. /, 'تعذّر حفظ إعدادات PROTV. '],
+                [/^Could not load the PROTV settings\. /, 'تعذّر تحميل إعدادات PROTV. '],
+                [/^Could not start the guide refresh\. /, 'تعذّر بدء تحديث دليل البرامج. '],
+                [/^Could not start the VOD sync\. /, 'تعذّر بدء مزامنة VOD. '],
+                [/^Could not create the report\. /, 'تعذّر إنشاء التقرير. '],
+                [/^The Refresh Guide task was not found\.$/, 'لم يتم العثور على مهمة تحديث دليل البرامج.'],
+                [/^Guide refresh started\. It runs in the background\.$/, 'بدأ تحديث دليل البرامج وسيعمل في الخلفية.'],
+                [/^Settings saved\.$/, 'تم حفظ الإعدادات.'],
+                [/^Unknown error$/, 'خطأ غير معروف']
+            ];
+
+            function isArabic() { return language === 'ar'; }
+
+            // "auto" resolves against the browser: an Arabic browser gets Arabic.
+            function resolveLanguage(value) {
+                var wanted = String(value || 'auto').toLowerCase();
+                if (wanted === 'ar' || wanted === 'en') { return wanted; }
+
+                var browser = String((navigator.languages && navigator.languages[0]) || navigator.language || 'en').toLowerCase();
+                return browser.indexOf('ar') === 0 ? 'ar' : 'en';
+            }
+
+            function translate(text) {
+                var value = String(text == null ? '' : text);
+                if (!isArabic()) { return value; }
+
+                // The page keeps its text in multi-line HTML, so matching runs on one line.
+                var flat = value.replace(/\s+/g, ' ').trim();
+                if (!flat) { return value; }
+
+                var swapped = flat;
+                for (var i = 0; i < AR_RULES.length; i++) {
+                    swapped = swapped.replace(AR_RULES[i][0], AR_RULES[i][1]);
+                }
+
+                return swapped === flat ? value : swapped;
+            }
+
+            function localize(root) {
+                if (!root) { return; }
+
+                var arabic = isArabic();
+                root.setAttribute('dir', arabic ? 'rtl' : 'ltr');
+                root.setAttribute('lang', arabic ? 'ar' : 'en');
+                if (arabic) {
+                    translateElement(root);
+                }
+            }
+
+            // True when an element holds only text and inline formatting, so its sentence can be
+            // swapped without losing structure. Line breaks and inputs keep it false.
+            function isInlineOnly(node) {
+                var children = node.childNodes;
+                for (var i = 0; i < children.length; i++) {
+                    if (children[i].nodeType === 1 && INLINE.indexOf(children[i].tagName) === -1) { return false; }
+                }
+
+                return true;
+            }
+
+            function translateElement(node) {
+                // Channel names, group names and other values must never be translated, even when
+                // they happen to match an interface string.
+                if (node.nodeType === 1 && node.classList && node.classList.contains('protvValue')) {
+                    return;
+                }
+
+                var children = node.childNodes;
+                for (var i = 0; i < children.length; i++) {
+                    var child = children[i];
+                    if (child.nodeType === 3) {
+                        var text = String(child.nodeValue || '');
+                        if (text.trim()) {
+                            var swapped = translate(text);
+                            if (swapped !== text) { child.nodeValue = swapped; }
+                        }
+
+                        continue;
+                    }
+
+                    if (child.nodeType !== 1) { continue; }
+
+                    var tag = child.tagName;
+                    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'TEXTAREA') { continue; }
+
+                    for (var a = 0; a < WATCHED.length; a++) {
+                        var value = child.getAttribute(WATCHED[a]);
+                        if (value) {
+                            var swappedAttribute = translate(value);
+                            child.setAttribute(WATCHED[a], swappedAttribute);
+                            // Jellyfin's emby-input draws its visible label from a property; keep
+                            // it in step when the custom element exposes one.
+                            if (WATCHED[a] === 'label' && 'label' in child) {
+                                try { child.label = swappedAttribute; } catch (ignored) { /* attribute is enough */ }
+                            }
+                        }
+                    }
+
+                    // A description that wraps a value in <code>...</code> splits its sentence over
+                    // several nodes, so it is translated as a whole. Only the descriptions get that
+                    // treatment: elsewhere an element may hold a value that must keep its identity.
+                    if (child.classList && child.classList.contains('fieldDescription') && isInlineOnly(child) && child.firstElementChild && !child.querySelector('[id]')) {
+                        var whole = child.textContent.replace(/\s+/g, ' ').trim();
+                        var swapped = translate(whole);
+                        if (swapped !== whole) {
+                            child.textContent = swapped;
+                            continue;
+                        }
+                    }
+
+                    translateElement(child);
+                }
+            }
+
+            // Keeps the translation in step with the page's own re-renders. A pass writes into the
+            // same nodes and attributes, which would retrigger the observer, so it is detached while
+            // translating. Attributes are watched by name because the page sets placeholders and
+            // titles straight after a re-render.
+            var WATCH_OPTIONS = {
+                childList: true,
+                subtree: true,
+                characterData: true,
+                attributes: true,
+                attributeFilter: WATCHED
+            };
+
+            function watchLanguage(root) {
+                if (!root) { return; }
+
+                localize(root);
+                if (languageObserver || !window.MutationObserver) { return; }
+
+                languageObserver = new window.MutationObserver(function () {
+                    languageObserver.disconnect();
+                    localize(root);
+                    if (languageObserver) {
+                        languageObserver.observe(root, WATCH_OPTIONS);
+                    }
+                });
+                languageObserver.observe(root, WATCH_OPTIONS);
+            }
+
+            // Jellyfin draws its alert boxes outside this page, so they are translated where they
+            // are raised.
+            var alertBox = Dashboard.alert.bind(Dashboard);
+            Dashboard.alert = function (options) {
+                if (options && typeof options.text === 'string') { options.text = translate(options.text); }
+                return alertBox(options);
+            };
+
+            // The connection test answers in English from the server; translate it on the way in.
+            var showTestResultBefore = showTestResult;
+            showTestResult = function (kind, text) {
+                showTestResultBefore(kind, translate(text));
+            };
+
+            // The setting is picked up from the page's own configuration once it has loaded.
+            function applyConfiguredLanguage(config) {
+                var next = resolveLanguage(config && config.UiLanguage);
+                if (next === language) { return; }
+
+                language = next;
+                localize(page);
+            }
+
+            page.addEventListener('pageshow', load);
+            page.addEventListener('viewshow', load);
+            watchLanguage(page);
+            load();
+
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                var overrides = readOverrides();
+                var groups = readGroups();
+                var values = readFields();
+
+                // The password box is empty when the saved one should be kept. A newly typed value
+                // is sent once and immediately encrypted by the server.
+                values.Password = el('protvPassword').value || state.savedPassword;
+
+                var updateResult;
+                Dashboard.showLoadingMsg();
+
+                // Read the current settings first so the channel snapshot and other fields are kept.
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    Object.keys(values).forEach(function (key) { config[key] = values[key]; });
+                    config.ChannelOverrides = overrides;
+                    config.ChannelGroups = groups;
+                    return ApiClient.updatePluginConfiguration(pluginId, config);
+                }).then(function (result) {
+                    updateResult = result;
+                    return ApiClient.getPluginConfiguration(pluginId);
+                }).then(function (stored) {
+                    var mismatch = Object.keys(values).filter(function (key) {
+                        // The password is encrypted again on save, so its envelope changes even when
+                        // the password itself did not.
+                        if (key === 'Password') { return false; }
+                        return (stored[key] == null ? '' : stored[key]) !== values[key];
+                    });
+                    if ((stored.ChannelOverrides || []).length !== overrides.length) { mismatch.push('ChannelOverrides'); }
+                    if (JSON.stringify(stored.ChannelGroups || []) !== JSON.stringify(groups)) { mismatch.push('ChannelGroups'); }
+                    if (mismatch.length) {
+                        throw new Error('The server accepted the request but did not keep: ' + mismatch.join(', ') + '. Check that the Jellyfin config folder is writable.');
+                    }
+                    Dashboard.hideLoadingMsg();
+                    showSaved(updateResult);
+                    state.config = stored;
+                    state.overrides = {};
+                    (stored.ChannelOverrides || []).forEach(function (o) { state.overrides[o.ChannelId] = o; });
+                    fillFields(stored);
+                    applyConfiguredLanguage(stored);
+                    renderGroups();
+                    renderChannels();
+                    loadCompanionNotice();
+                    loadParentalStatus();
+                    loadUpdateInfo(false);
+                    refreshVodStatus();
+                    refreshChannelHealth();
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    describeError(error).then(function (message) {
+                        Dashboard.alert({ title: 'PROTV', text: 'Unable to save PROTV settings. ' + message });
+                    });
+                });
+            });
+        })();
+    </script>
+    </div>
+</body>
+</html>

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PROTV</title>
+</head>
+<body>
+    <div id="protvConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="protvConfigurationForm">
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h2 class="sectionTitle">PROTV</h2>
+                        </div>
+                        <div class="fieldDescription" style="margin-bottom: 1.5em;">
+                            Sign in with your PROTV account to add its channels, guide data and logos to Live TV.
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Account</h3>
+                        </div>
+
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvUsername" type="text" autocomplete="username" label="Username" />
+                        </div>
+
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvPassword" type="password" autocomplete="current-password" label="Password" />
+                            <div class="fieldDescription">Encrypted in this server's plugin settings with a key kept outside the settings file. Leave the field empty to keep the saved password.</div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h3 class="sectionTitle">Service</h3>
+                        </div>
+
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvApiBaseUrl" type="url" label="API base URL" placeholder="http://10.1.0.8:82" />
+                            <div class="fieldDescription">Address of the PROTV service, including the port.</div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvAppId" type="text" label="App ID" placeholder="ca88f40a-3056-4c52-9614-8d75a3b0b178" />
+                            <div class="fieldDescription">Identifier the PROTV app signs in with. Change it only if the service requires a different one.</div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <input is="emby-input" id="protvDeviceModel" type="text" label="Device model" placeholder="Jellyfin Server" />
+                            <div class="fieldDescription">Name this server reports to PROTV. Use a fixed name when running in Docker.</div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <script type="text/javascript">
+        (function () {
+            var pluginId = '4a0a66d7-04ae-4c4d-b9af-8cb6a1c44f86';
+            var page = document.querySelector('#protvConfigPage');
+            var form = document.querySelector('#protvConfigurationForm');
+            var loading = false;
+            var savedPassword = '';
+            var language = 'en';
+
+            // The same display-layer Arabic approach as the dashboard and the home page tab: only
+            // interface text and attributes are swapped; field values are never translated.
+            var AR = [
+                [/^Sign in with your PROTV account to add its channels, guide data and logos to Live TV\.$/, 'سجّل الدخول بحساب PROTV لإضافة قنواته ودليل برامجه وشعاراته إلى البث المباشر.'],
+                [/^Account$/, 'الحساب'],
+                [/^Username$/, 'اسم المستخدم'],
+                [/^Password$/, 'كلمة المرور'],
+                [/^Encrypted in this server's plugin settings with a key kept outside the settings file\. Leave the field empty to keep the saved password\.$/, 'مشفّرة في إعدادات الإضافة على هذا الخادم، والمفتاح محفوظ خارج ملف الإعدادات. اترك الحقل فارغاً للإبقاء على كلمة المرور المحفوظة.'],
+                [/^Service$/, 'الخدمة'],
+                [/^API base URL$/, 'عنوان خدمة PROTV'],
+                [/^Address of the PROTV service, including the port\.$/, 'عنوان خدمة PROTV مع المنفذ.'],
+                [/^App ID$/, 'معرّف التطبيق'],
+                [/^Identifier the PROTV app signs in with\. Change it only if the service requires a different one\.$/, 'المعرّف الذي يسجّل به تطبيق PROTV الدخول. غيّره فقط إذا طلبت الخدمة غير ذلك.'],
+                [/^Device model$/, 'طراز الجهاز'],
+                [/^Name this server reports to PROTV\. Use a fixed name when running in Docker\.$/, 'الاسم الذي يقدّمه هذا الخادم إلى PROTV. استخدم اسماً ثابتاً عند التشغيل في Docker.'],
+                [/^Save$/, 'حفظ'],
+                [/^Settings saved\.$/, 'تم حفظ الإعدادات.']
+            ];
+
+            function resolveLanguage(value) {
+                var wanted = String(value || 'auto').toLowerCase();
+                if (wanted === 'ar' || wanted === 'en') { return wanted; }
+
+                var browser = String((navigator.languages && navigator.languages[0]) || navigator.language || 'en').toLowerCase();
+                return browser.indexOf('ar') === 0 ? 'ar' : 'en';
+            }
+
+            function translate(text) {
+                var value = String(text == null ? '' : text);
+                if (language !== 'ar') { return value; }
+
+                var flat = value.replace(/\s+/g, ' ').trim();
+                if (!flat) { return value; }
+
+                var swapped = flat;
+                for (var i = 0; i < AR.length; i++) {
+                    swapped = swapped.replace(AR[i][0], AR[i][1]);
+                }
+
+                return swapped === flat ? value : swapped;
+            }
+
+            function translateNode(root) {
+                if (!root) { return; }
+                if (root.nodeType === 1 && root.classList && root.classList.contains('protvValue')) {
+                    return;
+                }
+
+                for (var i = 0; i < root.childNodes.length; i++) {
+                    var child = root.childNodes[i];
+                    if (child.nodeType === 3) {
+                        var text = String(child.nodeValue || '');
+                        if (text.trim()) {
+                            var swapped = translate(text);
+                            if (swapped !== text) { child.nodeValue = swapped; }
+                        }
+
+                        continue;
+                    }
+
+                    if (child.nodeType !== 1 || child.tagName === 'SCRIPT' || child.tagName === 'STYLE') {
+                        continue;
+                    }
+
+                    var attributes = ['label', 'placeholder', 'title', 'aria-label'];
+                    for (var a = 0; a < attributes.length; a++) {
+                        var value = child.getAttribute(attributes[a]);
+                        if (!value) { continue; }
+
+                        var translated = translate(value);
+                        child.setAttribute(attributes[a], translated);
+                        if (attributes[a] === 'label' && 'label' in child) {
+                            try { child.label = translated; } catch (ignored) { /* attribute is enough */ }
+                        }
+                    }
+
+                    translateNode(child);
+                }
+            }
+
+            function localizePage() {
+                var arabic = language === 'ar';
+                page.setAttribute('dir', arabic ? 'rtl' : 'ltr');
+                page.setAttribute('lang', arabic ? 'ar' : 'en');
+                if (arabic) { translateNode(page); }
+            }
+
+            function savedPlaceholder() {
+                return language === 'ar'
+                    ? 'محفوظ (مشفّر) — اتركه فارغاً للإبقاء عليه'
+                    : 'Saved (encrypted) — leave empty to keep it';
+            }
+
+            function field(id) {
+                return document.querySelector('#' + id);
+            }
+
+            function readFields() {
+                return {
+                    ApiBaseUrl: field('protvApiBaseUrl').value.trim(),
+                    Username: field('protvUsername').value.trim(),
+                    Password: field('protvPassword').value,
+                    AppId: field('protvAppId').value.trim(),
+                    DeviceModel: field('protvDeviceModel').value.trim()
+                };
+            }
+
+            function loadConfig() {
+                if (loading) {
+                    return;
+                }
+
+                loading = true;
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    language = resolveLanguage(config.UiLanguage);
+                    field('protvApiBaseUrl').value = config.ApiBaseUrl || '';
+                    field('protvUsername').value = config.Username || '';
+                    savedPassword = config.Password || '';
+                    field('protvPassword').value = '';
+                    field('protvPassword').setAttribute('placeholder', savedPassword ? savedPlaceholder() : '');
+                    field('protvAppId').value = config.AppId || '';
+                    field('protvDeviceModel').value = config.DeviceModel || '';
+                    localizePage();
+                }).catch(function (error) {
+                    describeError(error).then(function (message) {
+                        Dashboard.alert({ title: 'PROTV', text: 'Could not load the saved settings. ' + message });
+                    });
+                }).then(function () {
+                    loading = false;
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            // Turns a failed request into readable text (HTTP status and server message).
+            function describeError(error) {
+                if (error && typeof error.status === 'number') {
+                    var summary = 'HTTP ' + error.status + (error.statusText ? ' ' + error.statusText : '');
+                    if (typeof error.text === 'function') {
+                        return error.text().then(function (body) {
+                            return body ? summary + ': ' + body.substring(0, 300) : summary;
+                        }, function () {
+                            return summary;
+                        });
+                    }
+
+                    return Promise.resolve(summary);
+                }
+
+                return Promise.resolve((error && error.message) || String(error || 'Unknown error'));
+            }
+
+            function showSaved(result) {
+                try {
+                    if (Dashboard.processPluginConfigurationUpdateResult) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                        return;
+                    }
+                } catch (ignored) {
+                    // fall through to the plain message
+                }
+
+                Dashboard.alert({ title: 'PROTV', text: translate('Settings saved.') });
+            }
+
+            // Load on every event the dashboard may raise when it shows this page, and once now.
+            page.addEventListener('pageshow', loadConfig);
+            page.addEventListener('viewshow', loadConfig);
+            loadConfig();
+
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                var values = readFields();
+                values.Password = field('protvPassword').value || savedPassword;
+                var updateResult;
+                Dashboard.showLoadingMsg();
+
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    Object.keys(values).forEach(function (key) {
+                        config[key] = values[key];
+                    });
+                    return ApiClient.updatePluginConfiguration(pluginId, config);
+                }).then(function (result) {
+                    updateResult = result;
+                    // Read the settings back to confirm the server really stored them.
+                    return ApiClient.getPluginConfiguration(pluginId);
+                }).then(function (stored) {
+                    var mismatch = Object.keys(values).filter(function (key) {
+                        if (key === 'Password') { return false; }
+                        return (stored[key] || '') !== values[key];
+                    });
+                    if (mismatch.length) {
+                        throw new Error('The server accepted the request but did not keep: ' + mismatch.join(', ') + '. Check that the Jellyfin config folder is writable.');
+                    }
+
+                    Dashboard.hideLoadingMsg();
+                    // Keep the next save from sending the old password: the server may have
+                    // encrypted the value again, so take the stored envelope and clear the box.
+                    savedPassword = stored.Password || values.Password;
+                    field('protvPassword').value = '';
+                    field('protvPassword').setAttribute(
+                        'placeholder',
+                        savedPassword ? savedPlaceholder() : '');
+                    showSaved(updateResult);
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    describeError(error).then(function (message) {
+                        Dashboard.alert({ title: 'PROTV', text: 'Unable to save PROTV settings. ' + message });
+                    });
+                });
+            });
+        })();
+    </script>
+    </div>
+</body>
+</html>

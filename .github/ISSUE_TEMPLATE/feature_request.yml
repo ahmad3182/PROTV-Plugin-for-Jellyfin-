@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest an idea
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to see?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it help?
+      description: What are you trying to do that is hard or impossible today?
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Please note
+      options:
+        - label: I understand this is a small community project made with the help of AI, and requests may take time or not be possible.
+          required: true
